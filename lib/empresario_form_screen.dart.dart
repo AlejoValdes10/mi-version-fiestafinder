@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'styles.dart';
- // Asegúrate de que la ruta sea correcta
-
-// Importar logger para mejorar el manejo de logs en lugar de print
 import 'package:logger/logger.dart';
+import 'styles.dart';
 
 class EmpresarioFormScreen extends StatefulWidget {
   const EmpresarioFormScreen({super.key});
@@ -21,11 +18,12 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController numberController = TextEditingController();
+  String? selectedDocumentType;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Inicializa el controlador de video
     _controller = VideoPlayerController.asset('assets/inicio3.mp4')
       ..initialize().then((_) {
@@ -33,7 +31,6 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
         _controller.setLooping(true); // Establece el video para que se repita
         _controller.play(); // Reproduce el video automáticamente
       }).catchError((e) {
-        // Usar el logger para imprimir el error en lugar de print
         _logger.e("Error al cargar el video: $e");
       });
   }
@@ -63,60 +60,95 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
                 : const Center(child: CircularProgressIndicator()),
           ),
           // Aquí va el contenido principal
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Container(
+          SingleChildScrollView(
+            child: Center(
+              child: Padding(
                 padding: const EdgeInsets.all(20.0),
-                decoration: AppStyles.containerDecoration,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo o imagen
-                    AnimatedOpacity(
-                      opacity: 1.0,
-                      duration: const Duration(seconds: 2),
-                      child: Image.asset(
-                        'assets/ff.png',
-                        height: 100,
+                child: Container(
+                  padding: const EdgeInsets.all(20.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9), // Fondo blanco con opacidad
+                    borderRadius: BorderRadius.circular(25), // Bordes redondeados
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 15,
+                        spreadRadius: 5,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    AnimatedDefaultTextStyle(
-                      duration: const Duration(seconds: 1),
-                      style: AppStyles.titleTextStyle.copyWith(
-                        color: const Color.fromARGB(255, 0, 0, 0),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Logo o imagen
+                      AnimatedOpacity(
+                        opacity: 1.0,
+                        duration: const Duration(seconds: 2),
+                        child: Image.asset(
+                          'assets/ff.png',
+                          height: 100,
+                        ),
                       ),
-                      child: const Text('EMPRESARIO'),
-                    ),
-                    const SizedBox(height: 20),
-                    // Campos de texto del formulario
-                    _buildTextField(nameController, 'Nombre del Empresario'),
-                    const SizedBox(height: 10),
-                    _buildTextField(emailController, 'Correo', keyboardType: TextInputType.emailAddress),
-                    const SizedBox(height: 10),
-                    _buildTextField(passwordController, 'Contraseña', obscureText: true),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      items: const [
-                        DropdownMenuItem(value: 'opcion1', child: Text('Cédula')),
-                        DropdownMenuItem(value: 'opcion2', child: Text('Cédula Extranjera')),
-                      ],
-                      onChanged: (value) {},
-                      decoration: AppStyles.textFieldDecoration('Selecciona...'),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildTextField(numberController, 'Número', keyboardType: TextInputType.number),
-                    const SizedBox(height: 20),
-                    // Botón para enviar el formulario
-                    ElevatedButton(
-                      onPressed: () {
-                        // Acción para enviar el formulario
-                      },
-                      style: AppStyles.elevatedButtonStyle,
-                      child: const Text("Enviar", style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                      const SizedBox(height: 20),
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(seconds: 1),
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black, // Título en negro
+                        ),
+                        child: const Text('EMPRESARIO'),
+                      ),
+                      const SizedBox(height: 30),
+                      // Campos de texto del formulario
+                      _buildTextField(nameController, 'Nombre del Empresario'),
+                      const SizedBox(height: 15),
+                      _buildTextField(emailController, 'Correo', keyboardType: TextInputType.emailAddress),
+                      const SizedBox(height: 15),
+                      _buildTextField(passwordController, 'Contraseña', obscureText: true),
+                      const SizedBox(height: 15),
+                      DropdownButtonFormField<String>(
+                        value: selectedDocumentType,
+                        items: const [
+                          DropdownMenuItem(value: 'opcion1', child: Text('Cédula')),
+                          DropdownMenuItem(value: 'opcion2', child: Text('Cédula Extranjera')),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedDocumentType = value;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Selecciona...',
+                          labelStyle: const TextStyle(color: Colors.black),
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      _buildTextField(numberController, 'Número', keyboardType: TextInputType.number),
+                      const SizedBox(height: 30),
+                      // Botón para enviar el formulario
+                      ElevatedButton(
+                        onPressed: () {
+                          // Acción para enviar el formulario
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                          elevation: 10,
+                        ),
+                        child: const Text(
+                          "Enviar",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -131,8 +163,16 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      decoration: AppStyles.textFieldDecoration(hintText),
+      style: const TextStyle(color: Colors.black),
+      decoration: InputDecoration(
+        labelText: hintText,
+        labelStyle: const TextStyle(color: Colors.black),
+        filled: true,
+        fillColor: Colors.grey[200],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }
-
