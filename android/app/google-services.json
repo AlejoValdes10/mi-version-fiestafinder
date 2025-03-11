@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "815596252512",
+    "firebase_url": "https://fiestafinder2006-default-rtdb.firebaseio.com",
+    "project_id": "fiestafinder2006",
+    "storage_bucket": "fiestafinder2006.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:815596252512:android:53130bb84e2b54fb82c205",
+        "android_client_info": {
+          "package_name": "com.example.fiestafinderflutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCplKfDOViThXhmiyyQqTDM4PS_roM-VU0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:815596252512:android:61da1c694d6477d182c205",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCplKfDOViThXhmiyyQqTDM4PS_roM-VU0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
