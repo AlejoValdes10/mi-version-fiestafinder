@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:logger/logger.dart';
-import 'styles.dart';
 
 class EmpresarioFormScreen extends StatefulWidget {
   const EmpresarioFormScreen({super.key});
@@ -23,13 +22,11 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Inicializa el controlador de video
     _controller = VideoPlayerController.asset('assets/inicio3.mp4')
       ..initialize().then((_) {
-        setState(() {}); // Actualiza la interfaz una vez que el video se haya inicializado
-        _controller.setLooping(true); // Establece el video para que se repita
-        _controller.play(); // Reproduce el video automáticamente
+        setState(() {});
+        _controller.setLooping(true);
+        _controller.play();
       }).catchError((e) {
         _logger.e("Error al cargar el video: $e");
       });
@@ -37,7 +34,7 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
 
   @override
   void dispose() {
-    _controller.dispose(); // Asegúrate de liberar los recursos al salir
+    _controller.dispose();
     super.dispose();
   }
 
@@ -46,29 +43,31 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Fondo del video
+          // **1. Fondo de video que ocupa toda la pantalla**
           Positioned.fill(
             child: _controller.value.isInitialized
                 ? FittedBox(
-                    fit: BoxFit.cover,
+                    fit: BoxFit.cover, // Ajusta el video sin dejar espacios en negro
                     child: SizedBox(
                       width: _controller.value.size.width,
                       height: _controller.value.size.height,
-                      child: VideoPlayer(_controller), // Muestra el video aquí
+                      child: VideoPlayer(_controller),
                     ),
                   )
                 : const Center(child: CircularProgressIndicator()),
           ),
-          // Aquí va el contenido principal
-          SingleChildScrollView(
-            child: Center(
+          // **2. Contenedor semi-transparente con el formulario**
+          Align(
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Container(
                   padding: const EdgeInsets.all(20.0),
+                  width: MediaQuery.of(context).size.width * 0.9,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9), // Fondo blanco con opacidad
-                    borderRadius: BorderRadius.circular(25), // Bordes redondeados
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.3),
@@ -80,28 +79,22 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Logo o imagen
-                      AnimatedOpacity(
-                        opacity: 1.0,
-                        duration: const Duration(seconds: 2),
-                        child: Image.asset(
-                          'assets/ff.png',
-                          height: 100,
-                        ),
+                      // **3. Imagen del logo**
+                      Image.asset(
+                        'assets/ff.png',
+                        height: 100,
                       ),
                       const SizedBox(height: 20),
-                      AnimatedDefaultTextStyle(
-                        duration: const Duration(seconds: 1),
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black, // Título en negro
-                        ),
-                        child: const Text('EMPRESARIO'),
+                      // **4. Título**
+                      const Text(
+                        'EMPRESARIO',
+                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black),
                       ),
                       const SizedBox(height: 30),
-                      // Campos de texto del formulario
+                      // **5. Campos del formulario**
                       _buildTextField(nameController, 'Nombre del Empresario'),
+                      const SizedBox(height: 15),
+                      _buildTextField(nameController, 'NIT'),
                       const SizedBox(height: 15),
                       _buildTextField(emailController, 'Correo', keyboardType: TextInputType.emailAddress),
                       const SizedBox(height: 15),
@@ -120,7 +113,6 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
                         },
                         decoration: InputDecoration(
                           labelText: 'Selecciona...',
-                          labelStyle: const TextStyle(color: Colors.black),
                           filled: true,
                           fillColor: Colors.grey[200],
                           border: OutlineInputBorder(
@@ -131,7 +123,7 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
                       const SizedBox(height: 15),
                       _buildTextField(numberController, 'Número', keyboardType: TextInputType.number),
                       const SizedBox(height: 30),
-                      // Botón para enviar el formulario
+                      // **6. Botón de enviar**
                       ElevatedButton(
                         onPressed: () {
                           // Acción para enviar el formulario
@@ -158,21 +150,35 @@ class EmpresarioFormScreenState extends State<EmpresarioFormScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hintText, {bool obscureText = false, TextInputType? keyboardType}) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.black),
-      decoration: InputDecoration(
-        labelText: hintText,
-        labelStyle: const TextStyle(color: Colors.black),
-        filled: true,
-        fillColor: Colors.grey[200],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
+  Widget _buildTextField(
+  TextEditingController controller,
+  String labelText, {
+  bool obscureText = false,
+  TextInputType keyboardType = TextInputType.text,
+  String? Function(String?)? validator,
+}) {
+  return TextFormField(
+    controller: controller,
+    obscureText: obscureText,
+    keyboardType: keyboardType,
+    decoration: InputDecoration(
+      labelText: labelText,
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.2),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+    validator: validator,
+  );
+}
+
+Widget _buildElevatedButton(String text, String route) {
+  return ElevatedButton(
+    onPressed: () {
+      if (mounted) {
+        Navigator.pushNamed(context, route);
+      }
+    },
+    child: Text(text),
+  );
+}
 }
