@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final User user;
+  const HomeScreen(this.user, {super.key});
 
   @override
   HomeScreenState createState() => HomeScreenState();
 }
 
 class HomeScreenState extends State<HomeScreen> {
+  String userName = "";
   int _selectedIndex = 0;
   List<Map<String, String>> events = [
     {
@@ -334,6 +338,7 @@ class HomeScreenState extends State<HomeScreen> {
   String selectedFilter = "Todos";
   String selectedDate = "Todas";
   String selectedType = "Todos";
+
   List<String> localidades = [
     "Todos",
     "Chapinero",
@@ -371,8 +376,20 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _getUserData();
     filteredEvents = events;
     searchController.addListener(_filterEvents);
+  }
+
+  Future<void> _getUserData() async {
+    DocumentSnapshot doc =
+        await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(widget.user.uid)
+            .get();
+    setState(() {
+      userName = doc['nombre'] ?? "Usuario";
+    });
   }
 
   void _filterEvents() {
@@ -411,17 +428,11 @@ class HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(title: const Text("Fiesta Finder")),
       body: Column(
         children: [
-          // Reemplazamos el CircleAvatar con la animación Lottie
-          Lottie.asset(
-            'assets/user.json', // Ruta de tu archivo JSON con la animación
-            width: 100, // Ajusta el tamaño de la animación
-            height: 100, // Ajusta el tamaño de la animación
-            fit:
-                BoxFit
-                    .fill, // Cómo se ajusta la animación dentro del contenedor
+          Lottie.asset('assets/user.json', width: 100, height: 100),
+          Text(
+            " $userName",
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
-          const Text("Usuario"),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: TextField(
@@ -433,7 +444,6 @@ class HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Filtros adicionales (Fecha, Localidad, Tipo de Evento)
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 20.0,
@@ -442,24 +452,30 @@ class HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildDropdown("Localidad", localidades, (String? value) {
-                  setState(() {
+                _buildDropdown(
+                  "Localidad",
+                  localidades,
+                  (value) => setState(() {
                     selectedFilter = value!;
-                  });
-                  _filterEvents();
-                }),
-                _buildDropdown("Fecha", fechas, (String? value) {
-                  setState(() {
+                    _filterEvents();
+                  }),
+                ),
+                _buildDropdown(
+                  "Fecha",
+                  fechas,
+                  (value) => setState(() {
                     selectedDate = value!;
-                  });
-                  _filterEvents();
-                }),
-                _buildDropdown("Tipo", tipos, (String? value) {
-                  setState(() {
+                    _filterEvents();
+                  }),
+                ),
+                _buildDropdown(
+                  "Tipo",
+                  tipos,
+                  (value) => setState(() {
                     selectedType = value!;
-                  });
-                  _filterEvents();
-                }),
+                    _filterEvents();
+                  }),
+                ),
               ],
             ),
           ),
@@ -477,14 +493,12 @@ class HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.favorite),
             label: 'Favoritos',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Buscar'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Usuario'),
         ],
       ),
     );
   }
 
-  // Método para construir los filtros tipo Dropdown
   Widget _buildDropdown(
     String label,
     List<String> items,
@@ -495,20 +509,19 @@ class HomeScreenState extends State<HomeScreen> {
         value: items.first,
         decoration: InputDecoration(labelText: label),
         items:
-            items.map((item) {
-              return DropdownMenuItem<String>(value: item, child: Text(item));
-            }).toList(),
+            items
+                .map(
+                  (item) =>
+                      DropdownMenuItem<String>(value: item, child: Text(item)),
+                )
+                .toList(),
         onChanged: onChanged,
       ),
     );
   }
 
   Widget _buildScreenContent() {
-    if (_selectedIndex == 1) {
-      return _buildFavoriteScreen();
-    } else {
-      return _buildHomeScreen();
-    }
+    return _selectedIndex == 1 ? _buildFavoriteScreen() : _buildHomeScreen();
   }
 
   Widget _buildHomeScreen() {
@@ -520,10 +533,7 @@ class HomeScreenState extends State<HomeScreen> {
         mainAxisSpacing: 10,
       ),
       itemCount: filteredEvents.length,
-      itemBuilder: (context, index) {
-        var event = filteredEvents[index];
-        return _buildEventCard(event);
-      },
+      itemBuilder: (context, index) => _buildEventCard(filteredEvents[index]),
     );
   }
 
@@ -538,76 +548,28 @@ class HomeScreenState extends State<HomeScreen> {
             mainAxisSpacing: 10,
           ),
           itemCount: favoriteEvents.length,
-          itemBuilder: (context, index) {
-            var event = favoriteEvents[index];
-            return _buildEventCard(event);
-          },
+          itemBuilder:
+              (context, index) => _buildEventCard(favoriteEvents[index]),
         );
   }
 
   Widget _buildEventCard(Map<String, String> event) {
     bool isFavorite = favoriteEvents.contains(event);
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EventDetailScreen(event: event),
+    return Card(
+      child: Column(
+        children: [
+          Expanded(child: Image.asset(event["image"]!, fit: BoxFit.cover)),
+          Text(event["name"]!, style: TextStyle(fontWeight: FontWeight.bold)),
+          Text("${event["localidad"]} - ${event["fecha"]}"),
+          IconButton(
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: isFavorite ? Colors.red : Colors.grey,
+            ),
+            onPressed: () => _toggleFavorite(event),
           ),
-        );
-      },
-      child: Card(
-        child: Column(
-          children: [
-            Expanded(child: Image.asset(event["image"]!, fit: BoxFit.cover)),
-            Text(event["name"]!, style: TextStyle(fontWeight: FontWeight.bold)),
-            Text("${event["localidad"]} - ${event["fecha"]}"),
-            IconButton(
-              icon: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : Colors.grey,
-              ),
-              onPressed: () => _toggleFavorite(event),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
-
-class EventDetailScreen extends StatelessWidget {
-  final Map<String, String> event;
-  const EventDetailScreen({super.key, required this.event});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(event["name"]!)),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Image.asset(event["image"]!, fit: BoxFit.cover),
-            const SizedBox(height: 10),
-            Text(
-              event["name"]!,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            Text("Fecha: ${event["fecha"]}"),
-            Text("Localidad: ${event["localidad"]}"),
-            Text("Tipo: ${event["tipo"]}"),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // Acción de agregar a favoritos
-              },
-              child: const Text("Añadir a Favoritos"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
