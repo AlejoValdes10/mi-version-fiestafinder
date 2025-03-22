@@ -14,8 +14,7 @@ class RegisterScreen extends StatefulWidget {
 class RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController documentNumberController =
-      TextEditingController();
+  final TextEditingController documentNumberController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController nitController = TextEditingController();
 
@@ -40,9 +39,9 @@ class RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_isEmailValid(emailController.text)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Correo inválido')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Correo inválido')),
+      );
       return;
     }
     if (!_isPasswordValid(passwordController.text)) {
@@ -57,9 +56,7 @@ class RegisterScreenState extends State<RegisterScreen> {
     }
     if (!_isNumeric(documentNumberController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El número de documento debe contener solo números.'),
-        ),
+        const SnackBar(content: Text('El número de documento debe contener solo números.')),
       );
       return;
     }
@@ -71,23 +68,19 @@ class RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          );
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
-      await _firestore
-          .collection('usuarios')
-          .doc(userCredential.user!.uid)
-          .set({
-            'nombre': nameController.text.trim(),
-            'correo': emailController.text.trim(),
-            'tipoDocumento': documentType,
-            'numeroDocumento': documentNumberController.text.trim(),
-            'tipoPersona': personType,
-            if (personType == 'Empresario') 'NIT': nitController.text.trim(),
-          });
+      await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
+        'nombre': nameController.text.trim(),
+        'correo': emailController.text.trim(),
+        'tipoDocumento': documentType,
+        'numeroDocumento': documentNumberController.text.trim(),
+        'tipoPersona': personType,
+        if (personType == 'Empresario') 'NIT': nitController.text.trim(),
+      });
 
       Navigator.pushReplacement(
         context,
@@ -96,34 +89,26 @@ class RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al registrarse: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrarse: $e')));
     }
   }
 
   Future<void> _registerWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      final GoogleSignInAuthentication? googleAuth =
-          await googleUser?.authentication;
+      final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth?.accessToken,
         idToken: googleAuth?.idToken,
       );
 
-      UserCredential userCredential = await _auth.signInWithCredential(
-        credential,
-      );
+      UserCredential userCredential = await _auth.signInWithCredential(credential);
 
-      await _firestore
-          .collection('usuarios')
-          .doc(userCredential.user!.uid)
-          .set({
-            'nombre': userCredential.user?.displayName ?? '',
-            'correo': userCredential.user?.email ?? '',
-          });
+      await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
+        'nombre': userCredential.user?.displayName ?? '',
+        'correo': userCredential.user?.email ?? '',
+      });
 
       Navigator.pushReplacement(
         context,
@@ -132,102 +117,207 @@ class RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al registrarse con Google: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrarse con Google: $e')));
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Container(
-          padding: const EdgeInsets.all(20.0),
-          width: 400,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('assets/ff.png', height: 100),
-              const SizedBox(height: 20),
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: 'Nombre'),
-              ),
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(labelText: 'Correo'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              DropdownButtonFormField<String>(
-                value: documentType,
-                items:
-                    ['Cédula', 'Cédula extranjera']
-                        .map(
-                          (type) =>
-                              DropdownMenuItem(value: type, child: Text(type)),
-                        )
-                        .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    documentType = value!;
-                  });
-                },
-                decoration: InputDecoration(labelText: 'Tipo de documento'),
-              ),
-              TextField(
-                controller: documentNumberController,
-                decoration: InputDecoration(labelText: 'Número de documento'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-              ),
-              DropdownButtonFormField<String>(
-                value: personType,
-                items:
-                    ['Usuario', 'Empresario']
-                        .map(
-                          (type) =>
-                              DropdownMenuItem(value: type, child: Text(type)),
-                        )
-                        .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    personType = value!;
-                  });
-                },
-                decoration: InputDecoration(labelText: 'Tipo de persona'),
-              ),
-              if (personType == 'Empresario')
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: SingleChildScrollView(
+  child: SizedBox(
+    height: MediaQuery.of(context).size.height,
+    child: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1A237E), Color(0xFFFFD700)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Padding(
+
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/ff.png', height: 150),
+                const SizedBox(height: 20),
+                Text(
+                  'Registrarse',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 5,
+                        color: Colors.black26,
+                        offset: Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
                 TextField(
-                  controller: nitController,
-                  decoration: InputDecoration(labelText: 'NIT de la empresa'),
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Nombre',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: emailController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Correo',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: documentType,
+                  items: ['Cédula', 'Cédula extranjera']
+                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      documentType = value!;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Tipo de documento',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: documentNumberController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Número de documento',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                   keyboardType: TextInputType.number,
                 ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _register,
-                child: const Text('Registrarse'),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: _registerWithGoogle,
-                child: const Text('Registrarse con Google'),
-              ),
-            ],
+                const SizedBox(height: 15),
+                TextField(
+                  controller: passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: personType,
+                  items: ['Usuario', 'Empresario']
+                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      personType = value!;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Tipo de persona',
+                    labelStyle: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.black.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                if (personType == 'Empresario')
+                  TextField(
+                    controller: nitController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'NIT de la empresa',
+                      labelStyle: const TextStyle(color: Colors.white),
+                      filled: true,
+                      fillColor: Colors.black.withOpacity(0.3),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _register,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black.withOpacity(0.8),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text('Registrarse'),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: _registerWithGoogle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.9),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.login, color: Colors.red),
+                      SizedBox(width: 10),
+                      Text('Registrarse con Google'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
+    ),
+   )
+  );
+}
 }
