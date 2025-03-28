@@ -75,17 +75,38 @@ class FirebaseService {
 
   // 🔑 Iniciar sesión con correo y contraseña
   static Future<User?> loginUser(String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password.trim(),
-      );
-      return userCredential.user;
-    } catch (e) {
-      print("Error al iniciar sesión: $e");
-      return null;
+  try {
+    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password.trim(),
+    );
+
+    User? user = userCredential.user;
+
+    if (user != null) {
+      // 🔐 Verificar si existe el documento
+      DocumentSnapshot doc =
+          await _firestore.collection('usuarios').doc(user.uid).get();
+
+      if (!doc.exists) {
+        await _firestore.collection('usuarios').doc(user.uid).set({
+          'nombre': 'Usuario',
+          'correo': user.email ?? '',
+        });
+        print("📄 Documento creado para el usuario");
+      } else {
+        print("✅ Documento ya existía");
+      }
     }
+
+    return user;
+  } catch (e) {
+    print("Error al iniciar sesión: $e");
+    return null;
   }
+}
+
+
 
   // 🔍 Obtener datos del usuario autenticado
   static Future<Map<String, dynamic>?> getUserData(String uid) async {
