@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
+import 'agregar_evento_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -15,12 +16,14 @@ class HomeScreenState extends State<HomeScreen> {
   String userName = "";
   String email = "";
   String cedula = "";
-  TextEditingController nameController = TextEditingController(); // Controlador para el nombre
+  String tipoPersona = "";
+  TextEditingController nameController = TextEditingController();
   int _selectedIndex = 0;
+
   List<Map<String, String>> events = [
     {
       "name": "Concierto de Rock al Parque",
-      "image": "assets/rock_al_parque.jpg",
+      "image": "assets/unnamed.png",
       "localidad": "Centro",
       "fecha": "2025-03-12",
       "tipo": "Amigos",
@@ -34,9 +37,7 @@ class HomeScreenState extends State<HomeScreen> {
   String selectedDate = "Todas";
   String selectedType = "Todos";
 
-  List<String> localidades = [
-    "Todos",
-  ];
+  List<String> localidades = ["Todos", "Centro", "Norte", "Sur"];
   List<String> fechas = [
     "Todas",
     "2025-03-01",
@@ -47,15 +48,39 @@ class HomeScreenState extends State<HomeScreen> {
   ];
   List<String> tipos = ["Todos", "Entretenimiento", "Parejas", "Amigos"];
 
+
   @override
   void initState() {
     super.initState();
     _getUserData();
+    _getEventsFromFirestore();
     filteredEvents = events;
     searchController.addListener(_filterEvents);
   }
 
-  // Obtener los datos del usuario desde Firestore
+  Future<void> _getEventsFromFirestore() async {
+  try {
+    QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('eventos').get();
+    List<Map<String, String>> loadedEvents = [];
+    for (var doc in snapshot.docs) {
+      loadedEvents.add({
+        'name': doc['name'],
+        'image': doc['image'],
+        'localidad': doc['localidad'],
+        'fecha': doc['fecha'],
+        'tipo': doc['tipo'],
+      });
+    }
+    setState(() {
+      events = loadedEvents;
+      filteredEvents = events;
+    });
+  } catch (e) {
+    print("Error al cargar los eventos: $e");
+  }
+}
+
+
   Future<void> _getUserData() async {
     try {
       DocumentSnapshot doc = await FirebaseFirestore.instance
@@ -68,20 +93,16 @@ class HomeScreenState extends State<HomeScreen> {
           userName = doc['nombre'] ?? "Usuario";
           email = widget.user.email ?? "No disponible";
           cedula = doc['numeroDocumento'] ?? "No disponible";
+          tipoPersona = doc['tipoPersona'] ?? "Usuario";
           nameController.text = userName;
         });
-      } else {
-        setState(() {
-          userName = "Sin datos";
-        });
-        print("No se encontró el documento o está vacío.");
       }
     } catch (e) {
       print("Error al cargar los datos: $e");
     }
   }
+  
 
-  // Filtrar eventos basados en la búsqueda y los filtros seleccionados
   void _filterEvents() {
     String query = searchController.text.toLowerCase();
     setState(() {
@@ -94,7 +115,6 @@ class HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // Alternar entre favorito y no favorito
   void _toggleFavorite(Map<String, String> event) {
     setState(() {
       if (favoriteEvents.contains(event)) {
@@ -105,76 +125,64 @@ class HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // Controlar la selección del índice en la barra de navegación
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  // Actualizar el nombre del usuario en la base de datos
   Future<void> _updateUserName() async {
     try {
-      await FirebaseFirestore.instance.collection('usuarios').doc(widget.user.uid).update({
-        'nombre': nameController.text,
-      });
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(widget.user.uid)
+          .update({'nombre': nameController.text});
       setState(() {
         userName = nameController.text;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nombre actualizado correctamente')),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al actualizar el nombre: $e')),
-      );
+      print("Error al actualizar el nombre: $e");
     }
   }
 
-  // Restablecer la contraseña del usuario
   Future<void> _resetPassword() async {
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: widget.user.email!);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Se ha enviado un correo para restablecer la contraseña"),
-      ));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Hubo un error al intentar restablecer la contraseña: $e"),
-      ));
+      print("Error al enviar correo de recuperación: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Fiesta Finder")),
+      appBar: AppBar(
+        title: const Text("Fiesta Finder"),
+        actions: tipoPersona == "Empresario"
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.add_box_rounded),
+                  tooltip: "Agregar Evento",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AgregarEventoScreen(user: widget.user)
+                      ),
+                    );
+                  },
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           Lottie.asset('assets/user.json', width: 100, height: 100),
-          userName.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: const CircularProgressIndicator(),
-                )
-              : Text(
-                  userName,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
+          Text(userName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 0, 0, 0), // El color de fondo con neón
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                shadowColor: const Color.fromARGB(255, 0, 0, 0), // Efecto de sombra
-                elevation: 8,
-              ),
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
@@ -230,7 +238,7 @@ class HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.deepPurpleAccent, // Neón
+        selectedItemColor: Colors.deepPurpleAccent,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -241,29 +249,19 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Dropdown para los filtros
-  Widget _buildDropdown(
-    String label,
-    List<String> items,
-    ValueChanged<String?> onChanged,
-  ) {
+  Widget _buildDropdown(String label, List<String> items, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
       value: items.first,
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.deepPurple[50],
       ),
-      items: items
-          .map((item) => DropdownMenuItem<String>(value: item, child: Text(item)))
-          .toList(),
+      items: items.map((item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
       onChanged: onChanged,
     );
   }
-
   // Contenido de la pantalla, basado en la opción seleccionada
   Widget _buildScreenContent() {
     return _selectedIndex == 1
@@ -275,18 +273,19 @@ class HomeScreenState extends State<HomeScreen> {
 
   // Pantalla principal de eventos
   Widget _buildHomeScreen() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.7,
-      ),
-      itemCount: filteredEvents.length,
-      itemBuilder: (context, index) => _buildEventCard(filteredEvents[index]),
-    );
-  }
+  return GridView.builder(
+    padding: const EdgeInsets.all(10),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.7,
+    ),
+    itemCount: filteredEvents.length,
+    itemBuilder: (context, index) => _buildEventCard(filteredEvents[index]),
+  );
+}
+
 
   // Pantalla de eventos favoritos
   Widget _buildFavoriteScreen() {
@@ -342,7 +341,7 @@ class HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: _resetPassword,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Botón con color neón
+              backgroundColor: const Color.fromARGB(255, 0, 0, 0),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -354,53 +353,38 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Tarjeta para mostrar el evento
+  // Tarjeta para mostrar cada evento
   Widget _buildEventCard(Map<String, String> event) {
     bool isFavorite = favoriteEvents.contains(event);
     return Card(
-      key: ValueKey(event["name"]),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+      elevation: 8.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.asset(
-                event["image"]!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.broken_image, size: 50);
-                },
-              ),
-            ),
+          Image.asset(
+            event["image"]!,
+            fit: BoxFit.cover,
+            height: 120,
+            width: double.infinity,
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+            padding: const EdgeInsets.all(8.0),
             child: Text(
               event["name"]!,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              "${event["localidad"]} - ${event["fecha"]}",
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: isFavorite ? Colors.red : Colors.grey,
-            ),
-            onPressed: () => _toggleFavorite(event),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: () => _toggleFavorite(event),
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : Colors.grey,
+                ),
+              ),
+            ],
           ),
         ],
       ),
