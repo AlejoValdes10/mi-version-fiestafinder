@@ -22,31 +22,36 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   DateTime? fechaEvento;
 
   Future<void> _guardarEvento() async {
-    if (!_formKey.currentState!.validate() || fechaEvento == null) return;
+  if (!_formKey.currentState!.validate() || fechaEvento == null) return;
 
-    try {
-      await FirebaseFirestore.instance.collection('eventos').add({
-        'nombre': nombreController.text,
-        'descripcion': descripcionController.text,
-        'direccion': direccionController.text,
-        'ubicacion': ubicacionController.text,
-        'costo': int.parse(costoController.text),
-        'capacidad': int.parse(capacidadController.text),
-        'fecha': Timestamp.fromDate(fechaEvento!),
-        'empresarioId': widget.user.uid,
-      });
+  try {
+    // Imagen por defecto si no se proporciona una imagen personalizada
+    String imagenUrl = 'assets/unnamed.png'; // Ruta de la imagen por defecto
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Evento agregado correctamente')),
-      );
+    await FirebaseFirestore.instance.collection('eventos').add({
+      'nombre': nombreController.text,
+      'descripcion': descripcionController.text,
+      'direccion': direccionController.text,
+      'ubicacion': ubicacionController.text,
+      'costo': int.parse(costoController.text),
+      'capacidad': int.parse(capacidadController.text),
+      'fecha': Timestamp.fromDate(fechaEvento!),
+      'empresarioId': widget.user.uid,
+      'imagen': imagenUrl, // Guardamos la imagen por defecto si no se ha subido una nueva
+    });
 
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar el evento: $e')),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Evento agregado correctamente')),
+    );
+
+    Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al guardar el evento: $e')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
