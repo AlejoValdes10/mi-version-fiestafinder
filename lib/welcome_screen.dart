@@ -9,7 +9,7 @@ class WelcomeScreen extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1A237E), Color(0xFFFFD700)], // Azul profundo a amarillo dorado
+            colors: [Color(0xFF0A3C79), Color(0xFFFAFAFA)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

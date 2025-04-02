@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,7 @@ class LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool rememberMe = false;
 
   Future<void> _login() async {
     try {
@@ -38,15 +40,13 @@ class LoginScreenState extends State<LoginScreen> {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
-        return; // El usuario canceló el inicio de sesión
+        return;
       }
-
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-
       UserCredential userCredential = await _auth.signInWithCredential(credential);
       Navigator.pushReplacement(
         context,
@@ -64,107 +64,109 @@ class LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-colors: [Color(0xFF0D47A1), Color(0xFF607D8B)], // Azul oscuro a azul grisáceo
- // Azul oscuro a azul más suave
-
-
-
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset('assets/ff.png', height: 150),
-                const SizedBox(height: 20),
-                Text(
-                  'Iniciar Sesión',
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset('assets/ff.png', height: 100),
+              const SizedBox(height: 20),
+              const Text(
+                'Iniciar Sesión',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 30),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'Ingrese su correo electrónico',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Contraseña',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Recordarme'),
+                  Switch(
+                    value: rememberMe,
+                    onChanged: (bool value) {
+                      setState(() {
+                        rememberMe = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+                child: const Text('INGRESAR', style: TextStyle(fontSize: 18)),
+              ),
+              const SizedBox(height: 20),
+              const Text('También puedes iniciar sesión con ...'),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.facebook, size: 40, color: Colors.blue),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.apple, size: 40, color: Colors.black),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.g_mobiledata, size: 40, color: Colors.red),
+                    onPressed: _signInWithGoogle,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegisterScreen()),
+                  );
+                },
+                child: const Text(
+                  '¿No tienes cuenta? Regístrate',
                   style: TextStyle(
-                    fontSize: 26,
+                    color: Colors.blue,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 5,
-                        color: Colors.black26,
-                        offset: Offset(2, 2),
-                      ),
-                    ],
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: emailController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Correo',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.8),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text('Ingresar'),
-                ),
-                const SizedBox(height: 15),
-                ElevatedButton(
-                  onPressed: _signInWithGoogle,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.9),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.login, color: Colors.red),
-                      SizedBox(width: 10),
-                      Text('Iniciar sesión con Google'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

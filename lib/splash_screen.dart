@@ -27,7 +27,7 @@ class SplashScreenState extends State<SplashScreen> {
       backgroundColor: Colors.black,
       body: Center(
         child: Lottie.asset(
-          'assets/spinner.json',
+          'assets/INICIOJM.json',
           width: 200,
           height: 200,
           fit: BoxFit.contain,

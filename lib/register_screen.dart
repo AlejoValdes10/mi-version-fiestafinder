@@ -122,202 +122,112 @@ class RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: SingleChildScrollView(
-  child: SizedBox(
-    height: MediaQuery.of(context).size.height,
-    child: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A237E), Color(0xFFFFD700)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset('assets/ff.png', height: 150),
-                const SizedBox(height: 20),
-                Text(
-                  'Registrarse',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 5,
-                        color: Colors.black26,
-                        offset: Offset(2, 2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Nombre',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: emailController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Correo',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: documentType,
-                  items: ['Cédula', 'Cédula extranjera']
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      documentType = value!;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Tipo de documento',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: documentNumberController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Número de documento',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: passwordController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: personType,
-                  items: ['Usuario', 'Empresario']
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      personType = value!;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Tipo de persona',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: Colors.black.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                if (personType == 'Empresario')
-                  TextField(
-                    controller: nitController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'NIT de la empresa',
-                      labelStyle: const TextStyle(color: Colors.white),
-                      filled: true,
-                      fillColor: Colors.black.withOpacity(0.3),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height,
+          child: Container(
+            color: const Color.fromARGB(255, 238, 239, 243), // Color sólido para el fondo
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/ff.png', height: 100),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Registrarse',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.8),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text('Registrarse'),
+                    const SizedBox(height: 30),
+                    _buildTextField(nameController, 'Nombre'),
+                    const SizedBox(height: 15),
+                    _buildTextField(emailController, 'Correo', keyboardType: TextInputType.emailAddress),
+                    const SizedBox(height: 15),
+                    _buildDropdown('Tipo de documento', documentType, ['Cédula', 'Cédula extranjera'], (value) {
+                      setState(() {
+                        documentType = value!;
+                      });
+                    }),
+                    const SizedBox(height: 15),
+                    _buildTextField(documentNumberController, 'Número de documento', keyboardType: TextInputType.number),
+                    const SizedBox(height: 15),
+                    _buildTextField(passwordController, 'Contraseña', obscureText: true),
+                    const SizedBox(height: 15),
+                    _buildDropdown('Tipo de persona', personType, ['Usuario', 'Empresario'], (value) {
+                      setState(() {
+                        personType = value!;
+                      });
+                    }),
+                    const SizedBox(height: 15),
+                    if (personType == 'Empresario') _buildTextField(nitController, 'NIT de la empresa', keyboardType: TextInputType.number),
+                    const SizedBox(height: 20),
+                    _buildElevatedButton('Registrarse', _register),
+                    const SizedBox(height: 10),
+                    _buildElevatedButton('Registrarse con Google', _registerWithGoogle, backgroundColor: Colors.white.withOpacity(0.9), textColor: Colors.black),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _registerWithGoogle,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.9),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.login, color: Colors.red),
-                      SizedBox(width: 10),
-                      Text('Registrarse con Google'),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-   )
-  );
-}
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, {TextInputType keyboardType = TextInputType.text, bool obscureText = false}) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white),
+        filled: true,
+        fillColor: Colors.black.withOpacity(0.3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+        ),
+      ),
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white),
+        filled: true,
+        fillColor: Colors.black.withOpacity(0.3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildElevatedButton(String label, VoidCallback onPressed, {Color? backgroundColor, Color? textColor}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor ?? Colors.purple,
+        foregroundColor: textColor ?? Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25),
+        ),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 18)),
+    );
+  }
 }
