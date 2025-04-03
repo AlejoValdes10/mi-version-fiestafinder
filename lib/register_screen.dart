@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_application_1/login_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -37,7 +39,7 @@ class RegisterScreenState extends State<RegisterScreen> {
     return RegExp(r'^[0-9]+$').hasMatch(str);
   }
 
-  Future<void> _register() async {
+   Future<void> _register() async {
     if (!_isEmailValid(emailController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Correo inválido')),
@@ -93,6 +95,8 @@ class RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+
+
   Future<void> _registerWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -122,76 +126,108 @@ class RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height,
-          child: Container(
-            color: const Color.fromARGB(255, 238, 239, 243), // Color sólido para el fondo
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset('assets/ff.png', height: 100),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Registrarse',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    _buildTextField(nameController, 'Nombre'),
-                    const SizedBox(height: 15),
-                    _buildTextField(emailController, 'Correo', keyboardType: TextInputType.emailAddress),
-                    const SizedBox(height: 15),
-                    _buildDropdown('Tipo de documento', documentType, ['Cédula', 'Cédula extranjera'], (value) {
-                      setState(() {
-                        documentType = value!;
-                      });
-                    }),
-                    const SizedBox(height: 15),
-                    _buildTextField(documentNumberController, 'Número de documento', keyboardType: TextInputType.number),
-                    const SizedBox(height: 15),
-                    _buildTextField(passwordController, 'Contraseña', obscureText: true),
-                    const SizedBox(height: 15),
-                    _buildDropdown('Tipo de persona', personType, ['Usuario', 'Empresario'], (value) {
-                      setState(() {
-                        personType = value!;
-                      });
-                    }),
-                    const SizedBox(height: 15),
-                    if (personType == 'Empresario') _buildTextField(nitController, 'NIT de la empresa', keyboardType: TextInputType.number),
-                    const SizedBox(height: 20),
-                    _buildElevatedButton('Registrarse', _register),
-                    const SizedBox(height: 10),
-                    _buildElevatedButton('Registrarse con Google', _registerWithGoogle, backgroundColor: Colors.white.withOpacity(0.9), textColor: Colors.black),
-                  ],
-                ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: SingleChildScrollView(
+      physics: BouncingScrollPhysics(),
+      child: Container(
+        color: Color(0xFFFDF3F9),
+        padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 40.0),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset('assets/ff.png', height: 90),
+              const SizedBox(height: 15),
+              const Text(
+                'Crear Cuenta',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black),
               ),
-            ),
+              const SizedBox(height: 20),
+              _buildTextField(nameController, 'Nombre', Icons.person),
+              const SizedBox(height: 12),
+              _buildTextField(emailController, 'Correo', Icons.email, keyboardType: TextInputType.emailAddress),
+              const SizedBox(height: 12),
+              _buildDropdown('Tipo de documento', documentType, ['Cédula', 'Cédula extranjera'], (value) {
+                setState(() {
+                  documentType = value!;
+                });
+              }),
+              const SizedBox(height: 12),
+              _buildTextField(documentNumberController, 'Número de documento', Icons.badge, keyboardType: TextInputType.number),
+              const SizedBox(height: 12),
+              _buildTextField(passwordController, 'Contraseña', Icons.lock, obscureText: true),
+              const SizedBox(height: 12),
+              _buildDropdown('Tipo de persona', personType, ['Usuario', 'Empresario'], (value) {
+                setState(() {
+                  personType = value!;
+                });
+              }),
+              const SizedBox(height: 12),
+              if (personType == 'Empresario') _buildTextField(nitController, 'NIT de la empresa', Icons.business, keyboardType: TextInputType.number),
+              const SizedBox(height: 20),
+              _buildElevatedButton('Registrarse', _register, Color.fromARGB(255, 39, 48, 176)),
+              const SizedBox(height: 10),
+              _buildGoogleButton(),
+              const SizedBox(height: 15),
+              _buildLoginText(),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildTextField(TextEditingController controller, String label, {TextInputType keyboardType = TextInputType.text, bool obscureText = false}) {
+// Botón de Google optimizado
+Widget _buildGoogleButton() {
+  return SizedBox(
+    width: 250,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          onPressed: _registerWithGoogle,
+          icon: Image.asset('assets/google.png', width: 40, height: 40),
+          tooltip: 'Registrarse con Google',
+        ),
+      ],
+    ),
+  );
+}
+
+// Texto de inicio de sesión optimizado
+Widget _buildLoginText() {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      const Text('¿Ya tienes cuenta? '),
+      GestureDetector(
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+        },
+        child: const Text(
+          'Inicia sesión',
+          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+        ),
+      ),
+    ],
+  );
+}
+
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType keyboardType = TextInputType.text, bool obscureText = false}) {
     return TextField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Color.fromARGB(255, 39, 48, 176)),
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white),
+        labelStyle: const TextStyle(color: Colors.black54),
         filled: true,
-        fillColor: Colors.black.withOpacity(0.3),
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
         ),
       ),
       keyboardType: keyboardType,
@@ -199,29 +235,41 @@ class RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      items: items.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white),
-        filled: true,
-        fillColor: Colors.black.withOpacity(0.3),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(25),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildElevatedButton(String label, VoidCallback onPressed, {Color? backgroundColor, Color? textColor}) {
+
+Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+  return DropdownButtonFormField<String>(
+    value: value,
+    items: items.map((type) => DropdownMenuItem(
+      value: type, 
+      child: Text(type, style: TextStyle(fontSize: 16)),
+    )).toList(),
+    onChanged: onChanged,
+    decoration: InputDecoration(
+      prefixIcon: Icon(Icons.list, color: Color.fromARGB(255, 39, 48, 176)),
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.black54),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(25),
+        borderSide: BorderSide.none,
+      ),
+    ),
+    menuMaxHeight: 300, // Limita la altura para evitar que se trabe
+    isExpanded: true, // Evita cortes en textos largos
+    icon: Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+  );
+}
+
+
+
+  Widget _buildElevatedButton(String label, VoidCallback onPressed, Color color) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: backgroundColor ?? Colors.purple,
-        foregroundColor: textColor ?? Colors.white,
+        backgroundColor: color,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(25),
