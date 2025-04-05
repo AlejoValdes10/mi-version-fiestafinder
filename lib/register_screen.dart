@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_application_1/login_screen.dart';
+import 'package:fiesta_finder/login_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
+
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -98,32 +98,72 @@ class RegisterScreenState extends State<RegisterScreen> {
 
 
   Future<void> _registerWithGoogle() async {
-    try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
+  // Desconectar la cuenta de Google actual para forzar la aparición de la ventana emergente
+  await GoogleSignIn().signOut();
+  
+  // Mostrar una alerta antes de continuar con el registro por Google
+  bool shouldRegisterAsUser = false;
 
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth?.accessToken,
-        idToken: googleAuth?.idToken,
+  // Mostrar el AlertDialog
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('¿Registrarse como Usuario?'),
+        content: Text('Si te registras con Google, serás registrado como Usuario. Si deseas registrarte como Empresario, debes llenar los datos adicionales.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              shouldRegisterAsUser = true;
+            },
+            child: Text('Registrar como Usuario'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              shouldRegisterAsUser = false;
+            },
+            child: Text('Cancelar'),
+          ),
+        ],
       );
+    },
+  ).then((_) async {
+    if (shouldRegisterAsUser) {
+      try {
+        // Iniciar sesión con Google después de cerrar la sesión previa
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+        final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
 
-      UserCredential userCredential = await _auth.signInWithCredential(credential);
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth?.accessToken,
+          idToken: googleAuth?.idToken,
+        );
 
-      await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
-        'nombre': userCredential.user?.displayName ?? '',
-        'correo': userCredential.user?.email ?? '',
-      });
+        UserCredential userCredential = await _auth.signInWithCredential(credential);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(userCredential.user!),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrarse con Google: $e')));
+        // Registro en Firestore como Usuario
+        await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
+          'nombre': userCredential.user?.displayName ?? '',
+          'correo': userCredential.user?.email ?? '',
+          'tipoPersona': 'Usuario', // Asumimos como Usuario por defecto
+        });
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(userCredential.user!),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrarse con Google: $e')));
+      }
     }
-  }
+  });
+}
+
+
 
   @override
 Widget build(BuildContext context) {

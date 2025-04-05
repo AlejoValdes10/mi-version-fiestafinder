@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,12 +18,25 @@ class LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool rememberMe = false;
 
-  Future<void> _login() async {
+  // Método para iniciar sesión con correo y contraseña
+  Future<void> _signInWithEmail() async {
     try {
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+
+      if (email.isEmpty || password.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Por favor, ingrese su correo y contraseña')),
+        );
+        return;
+      }
+
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        email: email,
+        password: password,
       );
+
+      // Redirige a la pantalla principal si el inicio de sesión es exitoso
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -40,25 +54,104 @@ class LoginScreenState extends State<LoginScreen> {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
-        return;
+        return; // El usuario canceló el inicio de sesión
       }
+
+      // Obtener la autenticación de Google
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
+
+      // Iniciar sesión con las credenciales de Google
       UserCredential userCredential = await _auth.signInWithCredential(credential);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(userCredential.user!),
-        ),
-      );
+
+      // Verificar si el usuario ya existe en Firestore usando el UID de Firebase Auth
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(userCredential.user!.uid) // Usamos el UID de Firebase Auth
+          .get();
+
+      if (!userDoc.exists) {
+        // Si no existe, mostrar la alerta y redirigir al registro
+        _showGoogleAccountAlert();
+      } else {
+        // Si el usuario ya existe en Firestore, redirigir a la pantalla de inicio
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(userCredential.user!),
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al iniciar sesión con Google: $e')),
       );
     }
+  }
+
+  // Alerta si el usuario no existe en la base de datos (para Google)
+  void _showGoogleAccountAlert() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('¡Cuenta no encontrada!'),
+          content: Text('No hay una cuenta creada con esta cuenta de Google. Por favor, regístrate.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Cierra el diálogo
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => RegisterScreen()), // Redirige a la pantalla de registro
+                );
+              },
+              child: Text('Registrarse'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Solo cierra el diálogo
+              },
+              child: Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Alerta si el usuario no existe en la base de datos (para email)
+  void _showEmailAccountAlert() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('¡Cuenta no encontrada!'),
+          content: Text('No hay una cuenta creada con este correo electrónico. Por favor, regístrate.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Cierra el diálogo
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => RegisterScreen()), // Redirige a la pantalla de registro
+                );
+              },
+              child: Text('Registrarse'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Solo cierra el diálogo
+              },
+              child: Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -118,7 +211,7 @@ class LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _login,
+                onPressed: _signInWithEmail, // Llama al nuevo método para login con correo
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 39, 48, 176),
                   foregroundColor: const Color.fromARGB(255, 255, 255, 255),
@@ -145,7 +238,7 @@ class LoginScreenState extends State<LoginScreen> {
                   ),
                   IconButton(
                     icon: Icon(Icons.g_mobiledata, size: 40, color: Colors.red),
-                    onPressed: _signInWithGoogle,
+                    onPressed: _signInWithGoogle, // Llama al método para login con Google
                   ),
                 ],
               ),

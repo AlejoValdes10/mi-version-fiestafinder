@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'agregar_evento_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -50,13 +51,21 @@ class HomeScreenState extends State<HomeScreen> {
 
 
   @override
-  void initState() {
-    super.initState();
-    _getUserData();
-    _getEventsFromFirestore();
-    filteredEvents = events;
-    searchController.addListener(_filterEvents);
-  }
+void initState() {
+  super.initState();
+  
+  // Cargar los datos del usuario
+  _getUserData();
+  
+  // Si ya está logueado, no cargues eventos inmediatamente (puedes hacerlo luego cuando sea necesario)
+  if (widget.user != null && widget.user.email != null) {
+  _getEventsFromFirestore();
+}
+
+  filteredEvents = events;  // Inicializar la lista de eventos filtrados
+  searchController.addListener(_filterEvents);  // Escuchar cambios en la búsqueda
+}
+
 
   Future<void> _getEventsFromFirestore() async {
   try {
@@ -64,7 +73,7 @@ class HomeScreenState extends State<HomeScreen> {
     List<Map<String, String>> loadedEvents = [];
     for (var doc in snapshot.docs) {
       loadedEvents.add({
-        'name': doc['name'],
+        'name': doc['eventName'],
         'image': doc['image'],
         'localidad': doc['localidad'],
         'fecha': doc['fecha'],
@@ -82,25 +91,32 @@ class HomeScreenState extends State<HomeScreen> {
 
 
   Future<void> _getUserData() async {
-    try {
-      DocumentSnapshot doc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(widget.user.uid)
-          .get();
+  try {
+    DocumentSnapshot doc = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(widget.user.uid)
+        .get();
 
-      if (doc.exists && doc.data() != null) {
-        setState(() {
-          userName = doc['nombre'] ?? "Usuario";
-          email = widget.user.email ?? "No disponible";
-          cedula = doc['numeroDocumento'] ?? "No disponible";
-          tipoPersona = doc['tipoPersona'] ?? "Usuario";
-          nameController.text = userName;
-        });
-      }
-    } catch (e) {
-      print("Error al cargar los datos: $e");
+    if (doc.exists && doc.data() != null) {
+      // Hacemos el cast explícito de doc.data() a Map<String, dynamic>
+      var data = doc.data() as Map<String, dynamic>;
+
+      setState(() {
+        userName = data.containsKey('nombre') ? data['nombre'] : "Usuario";
+        email = widget.user.email ?? "No disponible";
+        cedula = data.containsKey('numeroDocumento') ? data['numeroDocumento'] : "No disponible";
+        tipoPersona = data.containsKey('tipoPersona') ? data['tipoPersona'] : "Usuario";
+        nameController.text = userName;
+      });
+    } else {
+      print("El documento no existe.");
     }
+  } catch (e) {
+    print("Error al cargar los datos: $e");
   }
+}
+
+
   
 
   void _filterEvents() {
@@ -152,29 +168,51 @@ class HomeScreenState extends State<HomeScreen> {
       print("Error al enviar correo de recuperación: $e");
     }
   }
+  Future<void> _logout() async {
+  try {
+    // Cerrar sesión de Firebase
+    await FirebaseAuth.instance.signOut();
+    
+    // Cerrar sesión de Google
+    await GoogleSignIn().signOut();
+    
+    // Redirigir a la pantalla de inicio de sesión
+    Navigator.pushReplacementNamed(context, '/welcome');
+  } catch (e) {
+    print("Error al cerrar sesión: $e");
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Fiesta Finder"),
-        actions: tipoPersona == "Empresario"
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.add_box_rounded),
-                  tooltip: "Agregar Evento",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AgregarEventoScreen(user: widget.user)
-                      ),
-                    );
-                  },
-                ),
-              ]
-            : null,
+  title: const Text("Fiesta Finder"),
+  actions: [
+    // Agregar el botón de cerrar sesión
+    IconButton(
+      icon: const Icon(Icons.logout),
+      tooltip: "Cerrar sesión",
+      onPressed: _logout,
+    ),
+    // Si el tipo de persona es 'Empresario', mostrar el botón de agregar evento
+    if (tipoPersona == "Empresario")
+      IconButton(
+        icon: const Icon(Icons.add_box_rounded),
+        tooltip: "Agregar Evento",
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AgregarEventoScreen(user: widget.user),
+            ),
+          );
+        },
       ),
+  ],
+),
+
       body: Column(
         children: [
           Lottie.asset('assets/user.json', width: 100, height: 100),

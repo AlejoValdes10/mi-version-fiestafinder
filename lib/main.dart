@@ -4,11 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart'; // Agrega esta línea
-import 'login_screen.dart'; // Agrega esta línea
-import 'register_screen.dart'; // Agrega esta línea
 import 'home_screen.dart'; // Agrega esta línea
-import 'package:flutter_application_1/login_screen.dart' as login;
-import 'package:flutter_application_1/register_screen.dart' as register;
+import 'package:fiesta_finder/login_screen.dart' as login;
+import 'package:fiesta_finder/register_screen.dart' as register;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,16 +18,16 @@ class FiestaFinderApp extends StatelessWidget {
   const FiestaFinderApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
-      routes: {
-        '/welcome': (context) => const WelcomeScreen(),
-        '/login': (context) => const login.LoginScreen(),
-        '/register': (context) => const register.RegisterScreen(),
-        '/home': (context) => HomeScreen(FirebaseAuth.instance.currentUser!),
-      },
-    );
-  }
+Widget build(BuildContext context) {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: const SplashScreen(),
+    routes: {
+      '/welcome': (context) => const WelcomeScreen(),
+      '/login': (context) => const login.LoginScreen(),
+      '/register': (context) => const register.RegisterScreen(),
+      '/home': (context) => HomeScreen(FirebaseAuth.instance.currentUser!), // Esta es la pantalla principal
+    },
+  );
+}
 }
