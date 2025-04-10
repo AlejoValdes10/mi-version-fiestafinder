@@ -17,6 +17,7 @@ class LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool rememberMe = false;
+  bool passwordVisible = false; // Controla la visibilidad de la contraseña
 
   // Método para iniciar sesión con correo y contraseña
   Future<void> _signInWithEmail() async {
@@ -157,109 +158,122 @@ class LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset('assets/ff.png', height: 100),
-              const SizedBox(height: 20),
-              const Text(
-                'Iniciar Sesión',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 30),
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: 'Ingrese su correo electrónico',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Contraseña',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Recordarme'),
-                  Switch(
-                    value: rememberMe,
-                    onChanged: (bool value) {
-                      setState(() {
-                        rememberMe = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _signInWithEmail, // Llama al nuevo método para login con correo
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 39, 48, 176),
-                  foregroundColor: const Color.fromARGB(255, 255, 255, 255),
-                  padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-                child: const Text('INGRESAR', style: TextStyle(fontSize: 18)),
-              ),
-              const SizedBox(height: 20),
-              const Text('También puedes iniciar sesión con ...'),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.facebook, size: 40, color: Colors.blue),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.apple, size: 40, color: Colors.black),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.g_mobiledata, size: 40, color: Colors.red),
-                    onPressed: _signInWithGoogle, // Llama al método para login con Google
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => RegisterScreen()),
-                  );
-                },
-                child: const Text(
-                  '¿No tienes cuenta? Regístrate',
+      body: SingleChildScrollView( // Esto permite que el contenido sea desplazable
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/ff.png', height: 100),
+                const SizedBox(height: 20),
+                const Text(
+                  'Iniciar Sesión',
                   style: TextStyle(
-                    color: Colors.blue,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    color: Colors.black,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 30),
+                TextField(
+                  controller: emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Ingrese su correo electrónico',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: passwordController,
+                  obscureText: !passwordVisible, // Aquí controlamos la visibilidad de la contraseña
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        passwordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          passwordVisible = !passwordVisible; // Cambiamos la visibilidad de la contraseña
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Recordarme'),
+                    Switch(
+                      value: rememberMe,
+                      onChanged: (bool value) {
+                        setState(() {
+                          rememberMe = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _signInWithEmail, // Llama al nuevo método para login con correo
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 39, 48, 176),
+                    foregroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: const Text('INGRESAR', style: TextStyle(fontSize: 18)),
+                ),
+                const SizedBox(height: 20),
+                const Text('También puedes iniciar sesión con ...'),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.facebook, size: 40, color: Colors.blue),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.apple, size: 40, color: Colors.black),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.g_mobiledata, size: 40, color: Colors.red),
+                      onPressed: _signInWithGoogle, // Llama al método para login con Google
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => RegisterScreen()),
+                    );
+                  },
+                  child: const Text(
+                    '¿No tienes cuenta? Regístrate',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

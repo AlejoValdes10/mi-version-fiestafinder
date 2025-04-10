@@ -42,6 +42,7 @@ dependencies:
   google_sign_in: ^6.3.0
   dropdown_button2: ^2.3.9
   flutter_animate: ^4.0.0
+  image_picker: ^1.1.2
 
 
 
@@ -75,5 +76,6 @@ flutter:
     - assets/splash.gif
     - assets/ff2.png
     - assets/splash2.gif
+    - assets/listo.json
     
     
