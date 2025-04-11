@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'agregar_evento_screen.dart';
+import 'package:flutter/services.dart';
 
 // Pantalla principal que muestra eventos y el perfil del usuario
 class HomeScreen extends StatefulWidget {
@@ -103,8 +104,42 @@ void _showCustomSnackBar(String animationPath) {
   });
 }
 
+void _showMessageSnackBar(String message) {
+  OverlayEntry overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      top: MediaQuery.of(context).size.height / 3,  // Centrado en la pantalla
+      left: MediaQuery.of(context).size.width / 2 - 150,  // Ajustado para centrar más el contenedor
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),  // Espaciado en el contenedor
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),  // Fondo negro transparente
+            borderRadius: BorderRadius.circular(25),  // Bordes redondeados
+          ),
+          child: Center(  // Aseguramos que el texto esté centrado dentro del contenedor
+            child: Text(
+              message,
+              textAlign: TextAlign.center,  // Alineación de texto
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
+  Overlay.of(context)?.insert(overlayEntry);
 
+  // Eliminar el mensaje después de 3 segundos
+  Future.delayed(Duration(seconds: 3), () {
+    overlayEntry.remove();
+  });
+}
   @override
   void initState() {
     super.initState();
@@ -120,10 +155,6 @@ void _showCustomSnackBar(String animationPath) {
     filteredEvents = events;  // Inicializar lista de eventos filtrados
     searchController.addListener(_filterEvents);  // Escuchar cambios en la búsqueda
   }
-
-  
-  
- 
   // Obtener eventos desde Firestore
   Future<void> _getEventsFromFirestore() async {
     try {
@@ -224,29 +255,20 @@ Future<void> _updateUserName() async {
     _showCustomSnackBar("assets/listo.json");
   }
 }
-
-
-
-
-  
-
   // Enviar correo para restablecer la contraseña
 Future<void> _resetPassword() async {
   try {
+    // Enviar correo para restablecer la contraseña
     await FirebaseAuth.instance.sendPasswordResetEmail(email: widget.user.email!);
-    
+
     // Mostrar mensaje de éxito
-    _showSnackBar("Correo de recuperación enviado");
+    _showMessageSnackBar("Se ha enviado un correo para restablecer la contraseña.");
   } catch (e) {
     print("Error al enviar correo de recuperación: $e");
     // Mostrar mensaje de error
-    _showSnackBar("Error al enviar correo de recuperación");
+    _showMessageSnackBar("Hubo un error al enviar el correo.");
   }
 }
-
-
-
-
   // Cerrar sesión
 Future<void> _logout() async {
   try {
@@ -268,108 +290,203 @@ Future<void> _logout() async {
   }
 }
 
+ 
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Fiesta Finder"),
-        actions: [
-          // Botón de cerrar sesión
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.white,
+    extendBody: true, // Para que la barra se vea flotante
+    appBar: AppBar(
+      automaticallyImplyLeading: false,
+      backgroundColor: Colors.white,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: "Cerrar sesión",
+          onPressed: _logout,
+        ),
+        if (tipoPersona == "Empresario")
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: "Cerrar sesión",
-            onPressed: _logout,
+            icon: const Icon(Icons.add_box_rounded),
+            tooltip: "Agregar Evento",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AgregarEventoScreen(user: widget.user),
+                ),
+              );
+            },
           ),
-          // Si es un "Empresario", mostrar el botón de agregar evento
-          if (tipoPersona == "Empresario")
-            IconButton(
-              icon: const Icon(Icons.add_box_rounded),
-              tooltip: "Agregar Evento",
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AgregarEventoScreen(user: widget.user),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Lottie.asset('assets/user.json', width: 100, height: 100),  // Animación Lottie
-          Text(userName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),  // Nombre del usuario
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-                  ),
-                  isScrollControlled: true,
-                  builder: (BuildContext context) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text("Filtrar Eventos", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 20),
-                          _buildDropdown("Localidad", localidades, (value) {
-                            setState(() {
-                              selectedFilter = value!;
-                              _filterEvents();
-                            });
-                            Navigator.pop(context);
-                          }),
-                          const SizedBox(height: 15),
-                          _buildDropdown("Fecha", fechas, (value) {
-                            setState(() {
-                              selectedDate = value!;
-                              _filterEvents();
-                            });
-                            Navigator.pop(context);
-                          }),
-                          const SizedBox(height: 15),
-                          _buildDropdown("Tipo", tipos, (value) {
-                            setState(() {
-                              selectedType = value!;
-                              _filterEvents();
-                            });
-                            Navigator.pop(context);
-                          }),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-              icon: const Icon(Icons.filter_list),
-              label: const Text("Filtros"),
-            ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Lottie.asset('assets/user.json', width: 100, height: 100),
+        Text(
+          userName,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+                ),
+                isScrollControlled: true,
+                builder: (BuildContext context) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text("Filtrar Eventos", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 20),
+                        _buildDropdown("Localidad", localidades, (value) {
+                          setState(() {
+                            selectedFilter = value!;
+                            _filterEvents();
+                          });
+                          Navigator.pop(context);
+                        }),
+                        const SizedBox(height: 15),
+                        _buildDropdown("Fecha", fechas, (value) {
+                          setState(() {
+                            selectedDate = value!;
+                            _filterEvents();
+                          });
+                          Navigator.pop(context);
+                        }),
+                        const SizedBox(height: 15),
+                        _buildDropdown("Tipo", tipos, (value) {
+                          setState(() {
+                            selectedType = value!;
+                            _filterEvents();
+                          });
+                          Navigator.pop(context);
+                        }),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+            icon: const Icon(Icons.filter_list),
+            label: const Text("Filtros"),
           ),
-          const SizedBox(height: 10),
-          Flexible(child: _buildScreenContent()),  // Mostrar el contenido según la pestaña seleccionada
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
+        ),
+        const SizedBox(height: 10),
+        Flexible(child: _buildScreenContent()),
+      ],
+    ),
+
+    // Barra inferior flotante minimalista
+    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+floatingActionButton: Padding(
+  padding: const EdgeInsets.only(bottom: 10.0),
+  child: Container(
+    height: 55, // ← ALTURA FIJA MÁS DELGADA
+    margin: const EdgeInsets.symmetric(horizontal: 50.0),
+    padding: const EdgeInsets.symmetric(vertical: 0), // ← SIN EXTRA PADDING
+    decoration: BoxDecoration(
+      color: Colors.black,
+      borderRadius: BorderRadius.circular(40),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 10,
+          offset: Offset(0, 5),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(40), // ← Para que el BottomNav no se desborde
+      child: BottomNavigationBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.deepPurpleAccent,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoritos'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Usuario'),
+        selectedItemColor: const Color.fromARGB(255, 39, 48, 176),
+        unselectedItemColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        items: [
+          BottomNavigationBarItem(
+            icon: _buildSelectableIcon(0, Icons.home),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: _buildSelectableIcon(1, Icons.favorite),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: _buildSelectableIcon(2, Icons.person),
+            label: '',
+          ),
         ],
       ),
-    );
-  }
+    ),
+  ),
+),
+  );
+}
+
+  // Método para construir los íconos del BottomNavigationBar
+
+// Íconos con animación tipo iPhone al hacer clic
+Widget _buildSelectableIcon(int index, IconData icon) {
+  bool isSelected = _selectedIndex == index;
+
+  return GestureDetector(
+    onTap: () {
+      HapticFeedback.lightImpact(); // Vibración tipo iPhone
+      setState(() {
+        _selectedIndex = index;
+      });
+    },
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      padding: EdgeInsets.all(isSelected ? 10 : 6),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white : Colors.transparent,
+        shape: BoxShape.circle,
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: Color.fromARGB(255, 39, 48, 176), // brillo morado
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                  offset: Offset(0, 0),
+                ),
+              ]
+            : [],
+      ),
+      child: AnimatedScale(
+        duration: Duration(milliseconds: 250),
+        scale: isSelected ? 1.2 : 1.0,
+        curve: Curves.easeOutBack,
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 250),
+          transform: Matrix4.translationValues(0, isSelected ? -6 : 0, 0),
+          child: Icon(
+            icon,
+            size: isSelected ? 30 : 26,
+            color: isSelected ? Color.fromARGB(255, 39, 48, 176) : Colors.white,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 
   // Construir un DropdownButton para seleccionar filtros
   Widget _buildDropdown(String label, List<String> items, ValueChanged<String?> onChanged) {
@@ -427,13 +544,6 @@ Future<void> _logout() async {
                 _buildEventCard(favoriteEvents[index]),
           );
   }
-
-
-
-
-
-
-
   Widget _buildUserScreen() {
   return Padding(
     padding: const EdgeInsets.all(20.0),
@@ -560,8 +670,6 @@ Widget _buildActionButton({
     ),
   );
 }
-
-
 Widget _buildUserInfoCard(String label, String value) {
   return Container(
     width: double.infinity, // Ancho completo
@@ -597,16 +705,6 @@ Widget _buildUserInfoCard(String label, String value) {
     ),
   );
 }
-
-
-
-
-
-
-
-
-
-
   // Tarjeta para mostrar cada evento
   Widget _buildEventCard(Map<String, String> event) {
     bool isFavorite = favoriteEvents.contains(event);
@@ -645,3 +743,4 @@ Widget _buildUserInfoCard(String label, String value) {
     );
   }
 }
+
