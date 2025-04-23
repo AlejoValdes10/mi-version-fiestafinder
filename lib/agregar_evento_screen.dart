@@ -1,11 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class AgregarEventoScreen extends StatefulWidget {
   final User user;
-
-  const AgregarEventoScreen({required this.user, Key? key}) : super(key: key);
+  const AgregarEventoScreen({Key? key, required this.user}) : super(key: key);
 
   @override
   _AgregarEventoScreenState createState() => _AgregarEventoScreenState();
@@ -13,113 +15,223 @@ class AgregarEventoScreen extends StatefulWidget {
 
 class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController nombreController = TextEditingController();
-  final TextEditingController descripcionController = TextEditingController();
-  final TextEditingController direccionController = TextEditingController();
-  final TextEditingController ubicacionController = TextEditingController();
-  final TextEditingController costoController = TextEditingController();
-  final TextEditingController capacidadController = TextEditingController();
-  DateTime? fechaEvento;
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _descripcionController = TextEditingController();
+  final TextEditingController _fechaController = TextEditingController();
+  String _localidadSeleccionada = 'Centro';
+  String _tipoSeleccionado = 'Entretenimiento';
+  bool _isLoading = false;
+  File? _imageFile;
+  final picker = ImagePicker();
 
-  Future<void> _guardarEvento() async {
-  if (!_formKey.currentState!.validate() || fechaEvento == null) return;
+  final List<String> _localidades = ['Centro', 'Norte', 'Sur'];
+  final List<String> _tiposEvento = ['Entretenimiento', 'Parejas', 'Amigos'];
 
-  try {
-    // Imagen por defecto si no se proporciona una imagen personalizada
-    String imagenUrl = 'assets/unnamed.png'; // Ruta de la imagen por defecto
-
-    await FirebaseFirestore.instance.collection('eventos').add({
-      'nombre': nombreController.text,
-      'descripcion': descripcionController.text,
-      'direccion': direccionController.text,
-      'ubicacion': ubicacionController.text,
-      'costo': int.parse(costoController.text),
-      'capacidad': int.parse(capacidadController.text),
-      'fecha': Timestamp.fromDate(fechaEvento!),
-      'empresarioId': widget.user.uid,
-      'imagen': imagenUrl, // Guardamos la imagen por defecto si no se ha subido una nueva
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Evento agregado correctamente')),
-    );
-
-    Navigator.pop(context);
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error al guardar el evento: $e')),
-    );
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _descripcionController.dispose();
+    _fechaController.dispose();
+    super.dispose();
   }
-}
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        _fechaController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _submitEvent() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Usamos una imagen de placeholder si no se selecciona una
+      final imageUrl = _imageFile != null 
+          ? 'https://via.placeholder.com/400' // Reemplazar si luego implementas Storage
+          : 'https://via.placeholder.com/400?text=${_nombreController.text}';
+
+      await FirebaseFirestore.instance.collection('eventos').add({
+        'eventName': _nombreController.text,
+        'descripcion': _descripcionController.text,
+        'localidad': _localidadSeleccionada,
+        'fecha': _fechaController.text,
+        'tipo': _tipoSeleccionado,
+        'image': imageUrl,
+        'createdBy': widget.user.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Evento creado exitosamente!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al crear evento: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Agregar Evento")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              _buildTextField("Nombre", nombreController),
-              _buildTextField("Descripción", descripcionController),
-              _buildTextField("Dirección", direccionController),
-              _buildTextField("Ubicación", ubicacionController),
-              _buildTextField("Costo", costoController, isNumber: true),
-              _buildTextField("Capacidad", capacidadController, isNumber: true),
-              ListTile(
-                title: Text(
-                  fechaEvento == null
-                      ? "Seleccionar Fecha"
-                      : "Fecha: ${fechaEvento!.toLocal()}".split(' ')[0],
-                ),
-                trailing: Icon(Icons.calendar_today),
-                onTap: () async {
-                  DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (pickedDate != null) {
-                    setState(() {
-                      fechaEvento = pickedDate;
-                    });
-                  }
-                },
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _guardarEvento,
-                child: Text("Guardar Evento"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
+      appBar: AppBar(
+        title: Text('Nuevo Evento'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.save),
+            onPressed: _isLoading ? null : _submitEvent,
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(),
-          fillColor: Colors.deepPurple[50],
-          filled: true,
-        ),
-        validator: (value) => value == null || value.isEmpty ? "Campo requerido" : null,
-      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Sección de imagen
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        height: 200,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: _imageFile != null
+                            ? Image.file(_imageFile!, fit: BoxFit.cover)
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
+                                  SizedBox(height: 10),
+                                  Text('Agregar imagen del evento'),
+                                ],
+                              ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    // Campos del formulario
+                    TextFormField(
+                      controller: _nombreController,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre del Evento*',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.event),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Este campo es requerido' : null,
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: _descripcionController,
+                      decoration: InputDecoration(
+                        labelText: 'Descripción*',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                      maxLines: 3,
+                      validator: (value) =>
+                          value!.isEmpty ? 'Este campo es requerido' : null,
+                    ),
+                    SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: _localidadSeleccionada,
+                      items: _localidades
+                          .map((loc) => DropdownMenuItem(
+                                value: loc,
+                                child: Text(loc),
+                              ))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _localidadSeleccionada = value!),
+                      decoration: InputDecoration(
+                        labelText: 'Localidad*',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.location_on),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: _fechaController,
+                      decoration: InputDecoration(
+                        labelText: 'Fecha del Evento*',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.calendar_today),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onPressed: () => _selectDate(context),
+                        ),
+                      ),
+                      readOnly: true,
+                      validator: (value) =>
+                          value!.isEmpty ? 'Selecciona una fecha' : null,
+                    ),
+                    SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: _tipoSeleccionado,
+                      items: _tiposEvento
+                          .map((tipo) => DropdownMenuItem(
+                                value: tipo,
+                                child: Text(tipo),
+                              ))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _tipoSeleccionado = value!),
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Evento*',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                    ),
+                    SizedBox(height: 30),
+                    ElevatedButton(
+                      onPressed: _submitEvent,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size(double.infinity, 50),
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      child: Text(
+                        'PUBLICAR EVENTO',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

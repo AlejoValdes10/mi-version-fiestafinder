@@ -21,36 +21,52 @@ class LoginScreenState extends State<LoginScreen> {
 
   // Método para iniciar sesión con correo y contraseña
   Future<void> _signInWithEmail() async {
-    try {
-      final email = emailController.text.trim();
-      final password = passwordController.text.trim();
+  try {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
 
-      if (email.isEmpty || password.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Por favor, ingrese su correo y contraseña')),
-        );
-        return;
-      }
-
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor, ingrese su correo y contraseña')),
       );
+      return;
+    }
 
-      // Redirige a la pantalla principal si el inicio de sesión es exitoso
+    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    // Verificar si el usuario existe en Firestore
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(userCredential.user!.uid)
+        .get();
+
+    if (!userDoc.exists) {
+      _showEmailAccountAlert(); // Aquí llamamos al método
+    } else {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => HomeScreen(userCredential.user!),
         ),
       );
-    } catch (e) {
+    }
+  } on FirebaseAuthException catch (e) {
+    if (e.code == 'user-not-found') {
+      _showEmailAccountAlert(); // Mostrar alerta si el usuario no existe
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al iniciar sesión: $e')),
+        SnackBar(content: Text('Error al iniciar sesión: ${e.message}')),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al iniciar sesión: $e')),
+    );
   }
-
+}
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
