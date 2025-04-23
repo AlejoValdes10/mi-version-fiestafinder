@@ -5,17 +5,14 @@ import 'package:lottie/lottie.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'agregar_evento_screen.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui'; // Para ImageFilter.blur
 
-// Pantalla principal que muestra eventos y el perfil del usuario
 class HomeScreen extends StatefulWidget {
-  
-  final User user;  // Usuario que ha iniciado sesión
+  final User user;
   const HomeScreen(this.user, {super.key});
 
   @override
   HomeScreenState createState() => HomeScreenState();
-  
-  
 }
 
 class HomeScreenState extends State<HomeScreen> {
@@ -23,11 +20,13 @@ class HomeScreenState extends State<HomeScreen> {
   String email = "";
   String cedula = "";
   String tipoPersona = "";
-  TextEditingController nameController = TextEditingController();
-  int _selectedIndex = 0;  // Indica qué pestaña está seleccionada
-  
+  String _tempSelectedFilter = "Todos"; // Temporal para localidad
+  String _tempSelectedDate = "Todas";   // Temporal para fecha
+  String _tempSelectedType = "Todos";   // Temporal para tipo
 
-  // Lista de eventos inicial
+  TextEditingController nameController = TextEditingController();
+  int _selectedIndex = 0;
+
   List<Map<String, String>> events = [
     {
       "name": "Concierto de Rock al Parque",
@@ -38,7 +37,6 @@ class HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  // Filtrados y eventos favoritos
   List<Map<String, String>> filteredEvents = [];
   List<Map<String, String>> favoriteEvents = [];
   TextEditingController searchController = TextEditingController();
@@ -46,7 +44,6 @@ class HomeScreenState extends State<HomeScreen> {
   String selectedDate = "Todas";
   String selectedType = "Todos";
 
-  // Opciones de filtros
   List<String> localidades = ["Todos", "Centro", "Norte", "Sur"];
   List<String> fechas = [
     "Todas",
@@ -62,103 +59,95 @@ class HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          message, 
-          textAlign: TextAlign.center, 
+          message,
+          textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         duration: Duration(seconds: 3),
       ),
     );
   }
-  // Función para mostrar un mensaje personalizado con animación
-void _showCustomSnackBar(String animationPath) {
-  OverlayEntry overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
-      top: MediaQuery.of(context).size.height / 3,  // Centrado en la pantalla
-      left: MediaQuery.of(context).size.width / 2 - 75,  // Centrado horizontalmente (ajustado al tamaño de la animación)
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.7),  // Fondo negro con opacidad
-            borderRadius: BorderRadius.circular(25),  // Bordes redondeados
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),  // Asegura que el borde redondeado también se aplique al contenedor
-            child: Lottie.asset(
-              animationPath,  // Cargar la animación
-              width: 150,  // Tamaño de la animación
-              height: 150,  // Tamaño de la animación
+
+  void _showCustomSnackBar(String animationPath) {
+    OverlayEntry overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).size.height / 3,
+        left: MediaQuery.of(context).size.width / 2 - 75,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(25),
             ),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  Overlay.of(context)?.insert(overlayEntry);
-
-  // Eliminar la animación después de 3 segundos
-  Future.delayed(Duration(seconds: 3), () {
-    overlayEntry.remove();
-  });
-}
-
-void _showMessageSnackBar(String message) {
-  OverlayEntry overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
-      top: MediaQuery.of(context).size.height / 3,  // Centrado en la pantalla
-      left: MediaQuery.of(context).size.width / 2 - 150,  // Ajustado para centrar más el contenedor
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),  // Espaciado en el contenedor
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.7),  // Fondo negro transparente
-            borderRadius: BorderRadius.circular(25),  // Bordes redondeados
-          ),
-          child: Center(  // Aseguramos que el texto esté centrado dentro del contenedor
-            child: Text(
-              message,
-              textAlign: TextAlign.center,  // Alineación de texto
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: Lottie.asset(
+                animationPath,
+                width: 150,
+                height: 150,
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
 
-  Overlay.of(context)?.insert(overlayEntry);
+    Overlay.of(context)?.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 3), () => overlayEntry.remove());
+  }
 
-  // Eliminar el mensaje después de 3 segundos
-  Future.delayed(Duration(seconds: 3), () {
-    overlayEntry.remove();
-  });
-}
+  void _showMessageSnackBar(String message) {
+    OverlayEntry overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).size.height / 3,
+        left: MediaQuery.of(context).size.width / 2 - 150,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Center(
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)?.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 3), () => overlayEntry.remove());
+  }
+
   @override
   void initState() {
     super.initState();
-    
-    // Cargar los datos del usuario desde Firestore
+    _tempSelectedFilter = selectedFilter; // Inicializa con los valores actuales
+    _tempSelectedDate = selectedDate;
+    _tempSelectedType = selectedType;
     _getUserData();
-    
-    // Cargar eventos desde Firestore si el usuario está logueado
     if (widget.user != null && widget.user.email != null) {
       _getEventsFromFirestore();
     }
-
-    filteredEvents = events;  // Inicializar lista de eventos filtrados
-    searchController.addListener(_filterEvents);  // Escuchar cambios en la búsqueda
+    filteredEvents = events;
+    searchController.addListener(_filterEvents);
   }
-  // Obtener eventos desde Firestore
+
   Future<void> _getEventsFromFirestore() async {
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('eventos').get();
+      QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('eventos').get();
       List<Map<String, String>> loadedEvents = [];
       for (var doc in snapshot.docs) {
         loadedEvents.add({
@@ -170,15 +159,14 @@ void _showMessageSnackBar(String message) {
         });
       }
       setState(() {
-        events = loadedEvents;  // Actualizar los eventos
-        filteredEvents = events;  // Filtrar eventos
+        events = loadedEvents;
+        filteredEvents = events;
       });
     } catch (e) {
       print("Error al cargar los eventos: $e");
     }
   }
 
-  // Obtener datos del usuario desde Firestore
   Future<void> _getUserData() async {
     try {
       DocumentSnapshot doc = await FirebaseFirestore.instance
@@ -188,23 +176,22 @@ void _showMessageSnackBar(String message) {
 
       if (doc.exists && doc.data() != null) {
         var data = doc.data() as Map<String, dynamic>;
-
         setState(() {
           userName = data.containsKey('nombre') ? data['nombre'] : "Usuario";
           email = widget.user.email ?? "No disponible";
-          cedula = data.containsKey('numeroDocumento') ? data['numeroDocumento'] : "No disponible";
-          tipoPersona = data.containsKey('tipoPersona') ? data['tipoPersona'] : "Usuario";
+          cedula = data.containsKey('numeroDocumento')
+              ? data['numeroDocumento']
+              : "No disponible";
+          tipoPersona =
+              data.containsKey('tipoPersona') ? data['tipoPersona'] : "Usuario";
           nameController.text = userName;
         });
-      } else {
-        print("El documento no existe.");
       }
     } catch (e) {
       print("Error al cargar los datos: $e");
     }
   }
 
-  // Filtrar eventos según la búsqueda y los filtros seleccionados
   void _filterEvents() {
     String query = searchController.text.toLowerCase();
     setState(() {
@@ -217,7 +204,6 @@ void _showMessageSnackBar(String message) {
     });
   }
 
-  // Añadir o eliminar eventos de la lista de favoritos
   void _toggleFavorite(Map<String, String> event) {
     setState(() {
       if (favoriteEvents.contains(event)) {
@@ -228,75 +214,54 @@ void _showMessageSnackBar(String message) {
     });
   }
 
-  // Cambiar la pestaña seleccionada en el BottomNavigationBar
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-
-  // Actualizar el nombre del usuario en Firestore
-Future<void> _updateUserName() async {
-  try {
-    await FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(widget.user.uid)
-        .update({'nombre': nameController.text});
-    setState(() {
-      userName = nameController.text;
-    });
-
-    // Mostrar mensaje de éxito con animación
-    _showCustomSnackBar("assets/listo.json");
-  } catch (e) {
-    print("Error al actualizar el nombre: $e");
-    // Mostrar mensaje de error con animación
-    _showCustomSnackBar("assets/listo.json");
+  Future<void> _updateUserName() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(widget.user.uid)
+          .update({'nombre': nameController.text});
+      setState(() => userName = nameController.text);
+      _showCustomSnackBar("assets/listo.json");
+    } catch (e) {
+      print("Error al actualizar el nombre: $e");
+      _showCustomSnackBar("assets/listo.json");
+    }
   }
-}
-  // Enviar correo para restablecer la contraseña
-Future<void> _resetPassword() async {
-  try {
-    // Enviar correo para restablecer la contraseña
-    await FirebaseAuth.instance.sendPasswordResetEmail(email: widget.user.email!);
 
-    // Mostrar mensaje de éxito
-    _showMessageSnackBar("Se ha enviado un correo para restablecer la contraseña.");
-  } catch (e) {
-    print("Error al enviar correo de recuperación: $e");
-    // Mostrar mensaje de error
-    _showMessageSnackBar("Hubo un error al enviar el correo.");
+  Future<void> _resetPassword() async {
+    try {
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: widget.user.email!);
+      _showMessageSnackBar("Se ha enviado un correo para restablecer la contraseña.");
+    } catch (e) {
+      print("Error al enviar correo de recuperación: $e");
+      _showMessageSnackBar("Hubo un error al enviar el correo.");
+    }
   }
-}
-  // Cerrar sesión
-Future<void> _logout() async {
-  try {
-    // Cerrar sesión de Firebase
-    await FirebaseAuth.instance.signOut();
-    
-    // Cerrar sesión de Google
-    await GoogleSignIn().signOut();
-    
-    // Redirigir a la pantalla de inicio de sesión
-    Navigator.pushReplacementNamed(context, '/welcome');
-    
-    // Mostrar mensaje de éxito
-    _showSnackBar("Sesión cerrada con éxito");
-  } catch (e) {
-    print("Error al cerrar sesión: $e");
-    // Mostrar mensaje de error
-    _showSnackBar("Error al cerrar sesión");
+
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().signOut();
+      Navigator.pushReplacementNamed(context, '/welcome');
+      _showSnackBar("Sesión cerrada con éxito");
+    } catch (e) {
+      print("Error al cerrar sesión: $e");
+      _showSnackBar("Error al cerrar sesión");
+    }
   }
-}
 
- 
-
- @override
+  @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: Colors.white,
-    extendBody: true, // Para que la barra se vea flotante
+    extendBody: true,
     appBar: AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: Colors.white,
@@ -304,13 +269,11 @@ Widget build(BuildContext context) {
       actions: [
         IconButton(
           icon: const Icon(Icons.logout),
-          tooltip: "Cerrar sesión",
           onPressed: _logout,
         ),
         if (tipoPersona == "Empresario")
           IconButton(
             icon: const Icon(Icons.add_box_rounded),
-            tooltip: "Agregar Evento",
             onPressed: () {
               Navigator.push(
                 context,
@@ -330,165 +293,325 @@ Widget build(BuildContext context) {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
+        // Botón de filtros moderno (cambia esto)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-                ),
-                isScrollControlled: true,
-                builder: (BuildContext context) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("Filtrar Eventos", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 20),
-                        _buildDropdown("Localidad", localidades, (value) {
-                          setState(() {
-                            selectedFilter = value!;
-                            _filterEvents();
-                          });
-                          Navigator.pop(context);
-                        }),
-                        const SizedBox(height: 15),
-                        _buildDropdown("Fecha", fechas, (value) {
-                          setState(() {
-                            selectedDate = value!;
-                            _filterEvents();
-                          });
-                          Navigator.pop(context);
-                        }),
-                        const SizedBox(height: 15),
-                        _buildDropdown("Tipo", tipos, (value) {
-                          setState(() {
-                            selectedType = value!;
-                            _filterEvents();
-                          });
-                          Navigator.pop(context);
-                        }),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-            icon: const Icon(Icons.filter_list),
-            label: const Text("Filtros"),
+          child: FloatingActionButton.extended(
+            onPressed: _showModernFilterModal,
+            icon: Icon(Icons.tune, color: Colors.white),
+            label: Text("Filtrar", style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.black,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
           ),
         ),
         const SizedBox(height: 10),
-        Flexible(child: _buildScreenContent()),
+        Expanded(child: _buildScreenContent()),
       ],
     ),
-
-    // Barra inferior flotante minimalista
-    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-floatingActionButton: Padding(
-  padding: const EdgeInsets.only(bottom: 10.0),
-  child: Container(
-    height: 55, // ← ALTURA FIJA MÁS DELGADA
-    margin: const EdgeInsets.symmetric(horizontal: 50.0),
-    padding: const EdgeInsets.symmetric(vertical: 0), // ← SIN EXTRA PADDING
-    decoration: BoxDecoration(
-      color: Colors.black,
-      borderRadius: BorderRadius.circular(40),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.15),
-          blurRadius: 10,
-          offset: Offset(0, 5),
-        ),
-      ],
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(40), // ← Para que el BottomNav no se desborde
-      child: BottomNavigationBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color.fromARGB(255, 39, 48, 176),
-        unselectedItemColor: Colors.white,
-        type: BottomNavigationBarType.fixed,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: [
-          BottomNavigationBarItem(
-            icon: _buildSelectableIcon(0, Icons.home),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildSelectableIcon(1, Icons.favorite),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildSelectableIcon(2, Icons.person),
-            label: '',
-          ),
-        ],
-      ),
-    ),
-  ),
-),
+    bottomNavigationBar: _buildBottomNavigationBar(),
   );
 }
 
-  // Método para construir los íconos del BottomNavigationBar
+// Método para mostrar el modal de filtros moderno (añade esto)
+void _showModernFilterModal() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withOpacity(0.4),
+    builder: (context) {
+      return StatefulBuilder( // <-- Permite actualizar el modal sin cerrarlo
+        builder: (BuildContext context, StateSetter setModalState) {
+          return BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              padding: EdgeInsets.fromLTRB(25, 30, 25, MediaQuery.of(context).viewInsets.bottom + 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Encabezado
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Filtrar Eventos',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.black54),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
 
-// Íconos con animación tipo iPhone al hacer clic
-Widget _buildSelectableIcon(int index, IconData icon) {
-  bool isSelected = _selectedIndex == index;
+                  // Filtro de Localidad con scroll horizontal mejorado
+                  _buildModernFilterSection(
+                    title: "Localidad",
+                    options: localidades,
+                    currentSelection: _tempSelectedFilter,
+                    onSelect: (value) {
+                      setModalState(() { // <-- Usa setModalState para actualizar solo el modal
+                        _tempSelectedFilter = value;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 25),
 
-  return GestureDetector(
-    onTap: () {
-      HapticFeedback.lightImpact(); // Vibración tipo iPhone
-      setState(() {
-        _selectedIndex = index;
-      });
+                  // Filtro de Fecha con scroll horizontal
+                  _buildModernFilterSection(
+                    title: "Fecha",
+                    options: fechas,
+                    currentSelection: _tempSelectedDate,
+                    onSelect: (value) {
+                      setModalState(() {
+                        _tempSelectedDate = value;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 25),
+
+                  // Filtro de Tipo
+                  _buildModernFilterSection(
+                    title: "Tipo de Evento",
+                    options: tipos,
+                    currentSelection: _tempSelectedType,
+                    onSelect: (value) {
+                      setModalState(() {
+                        _tempSelectedType = value;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 30),
+
+                  // Botón de aplicar
+                  Row(
+                    children: [
+                      // Botón Reset
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setModalState(() {
+                              _tempSelectedFilter = "Todos";
+                              _tempSelectedDate = "Todas";
+                              _tempSelectedType = "Todos";
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            side: BorderSide(color: Colors.black),
+                          ),
+                          child: Text(
+                            'Reiniciar',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 15),
+                      // Botón Aplicar
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() { // <-- Aquí aplica los cambios a la pantalla principal
+                              selectedFilter = _tempSelectedFilter;
+                              selectedDate = _tempSelectedDate;
+                              selectedType = _tempSelectedType;
+                              _filterEvents();
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Aplicar Filtros',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
     },
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      padding: EdgeInsets.all(isSelected ? 10 : 6),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.white : Colors.transparent,
-        shape: BoxShape.circle,
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: Color.fromARGB(255, 39, 48, 176), // brillo morado
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                  offset: Offset(0, 0),
-                ),
-              ]
-            : [],
-      ),
-      child: AnimatedScale(
-        duration: Duration(milliseconds: 250),
-        scale: isSelected ? 1.2 : 1.0,
-        curve: Curves.easeOutBack,
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: 250),
-          transform: Matrix4.translationValues(0, isSelected ? -6 : 0, 0),
-          child: Icon(
-            icon,
-            size: isSelected ? 30 : 26,
-            color: isSelected ? Color.fromARGB(255, 39, 48, 176) : Colors.white,
-          ),
-        ),
-      ),
-    ),
   );
 }
 
+// Método auxiliar para construir secciones de filtro (añade esto)
+Widget _buildModernFilterSection({
+  required String title,
+  required List<String> options,
+  required String currentSelection,
+  required Function(String) onSelect,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 8.0),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
+        ),
+      ),
+      SizedBox(height: 12),
+      Container(
+        height: 50, // Altura fija para mejor UX
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: BouncingScrollPhysics(), // Efecto de rebote
+          itemCount: options.length,
+          itemBuilder: (context, index) {
+            final option = options[index];
+            bool isSelected = currentSelection == option;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ChoiceChip(
+                label: Text(
+                  option,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontSize: 14,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (selected) => onSelect(option),
+                selectedColor: Colors.black,
+                backgroundColor: Colors.grey[200],
+                shape: StadiumBorder(),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                labelPadding: EdgeInsets.symmetric(horizontal: 4),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
 
-  // Construir un DropdownButton para seleccionar filtros
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -5),
+          )
+        ],
+
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        child: BottomNavigationBar(
+          elevation: 0,
+          backgroundColor: Colors.black,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: Color.fromARGB(255, 39, 48, 176),
+          unselectedItemColor: Colors.white70,
+          type: BottomNavigationBarType.fixed,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          items: [
+            BottomNavigationBarItem(
+              icon: _buildSelectableIcon(0, Icons.home),
+              label: '',
+            ),
+            BottomNavigationBarItem(
+              icon: _buildSelectableIcon(1, Icons.favorite),
+              label: '',
+            ),
+            BottomNavigationBarItem(
+              icon: _buildSelectableIcon(2, Icons.person),
+              label: '',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectableIcon(int index, IconData icon) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _selectedIndex = index);
+      },
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.all(isSelected ? 10 : 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          shape: BoxShape.circle,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Color.fromARGB(255, 39, 48, 176),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                    offset: Offset(0, 0),
+                  ),
+                ]
+              : [],
+        ),
+        child: AnimatedScale(
+          duration: Duration(milliseconds: 250),
+          scale: isSelected ? 1.2 : 1.0,
+          curve: Curves.easeOutBack,
+          child: AnimatedContainer(
+            duration: Duration(milliseconds: 250),
+            transform: Matrix4.translationValues(0, isSelected ? -6 : 0, 0),
+            child: Icon(
+              icon,
+              size: isSelected ? 30 : 26,
+              color: isSelected ? Color.fromARGB(255, 39, 48, 176) : Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDropdown(String label, List<String> items, ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
       value: items.first,
@@ -498,12 +621,14 @@ Widget _buildSelectableIcon(int index, IconData icon) {
         filled: true,
         fillColor: Colors.deepPurple[50],
       ),
-      items: items.map((item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
+      items: items.map((item) => DropdownMenuItem<String>(
+        value: item,
+        child: Text(item),
+      )).toList(),
       onChanged: onChanged,
     );
   }
 
-  // Contenido de la pantalla, basado en la opción seleccionada
   Widget _buildScreenContent() {
     return _selectedIndex == 1
         ? _buildFavoriteScreen()
@@ -512,11 +637,10 @@ Widget _buildSelectableIcon(int index, IconData icon) {
             : _buildHomeScreen();
   }
 
-  // Pantalla principal de eventos
   Widget _buildHomeScreen() {
     return GridView.builder(
       padding: const EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
@@ -527,99 +651,82 @@ Widget _buildSelectableIcon(int index, IconData icon) {
     );
   }
 
-  // Pantalla de eventos favoritos
   Widget _buildFavoriteScreen() {
     return favoriteEvents.isEmpty
-        ? const Center(child: Text("No hay eventos favoritos"))
+        ? Center(child: Text("No hay eventos favoritos"))
         : GridView.builder(
             padding: const EdgeInsets.all(10),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               childAspectRatio: 0.7,
             ),
             itemCount: favoriteEvents.length,
-            itemBuilder: (context, index) =>
-                _buildEventCard(favoriteEvents[index]),
+            itemBuilder: (context, index) => _buildEventCard(favoriteEvents[index]),
           );
   }
+
   Widget _buildUserScreen() {
-  return Padding(
-    padding: const EdgeInsets.all(20.0),
-    child: SingleChildScrollView(
-      child: Center( // Centra todo el contenido
-        child: Column(
-          mainAxisSize: MainAxisSize.min, // Esto asegura que el contenido no ocupe espacio extra
-          children: [
-            // Correo del usuario
-            _buildUserInfoRow("Correo: ", email),
-            const SizedBox(height: 10),
-
-            // Cédula del usuario
-            _buildUserInfoRow("Cédula: ", cedula),
-            const SizedBox(height: 20),
-
-            // Campo de texto para editar el nombre
-            _buildTextField(
-              label: "Nombre",
-              controller: nameController,
-              icon: Icons.person,
-            ),
-            const SizedBox(height: 30),
-
-            // Botón para actualizar información
-            _buildActionButton(
-              text: "Actualizar Información",
-              onPressed: _updateUserName,
-            ),
-            const SizedBox(height: 15),
-
-            // Botón para restablecer la contraseña
-            _buildActionButton(
-              text: "Restablecer Contraseña",
-              onPressed: _resetPassword,
-            ),
-            const SizedBox(height: 30),
-
-            // Botón para cerrar sesión (si lo deseas añadir aquí)
-            _buildActionButton(
-              text: "Cerrar Sesión",
-              onPressed: _logout,
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildUserInfoRow("Correo: ", email),
+              const SizedBox(height: 10),
+              _buildUserInfoRow("Cédula: ", cedula),
+              const SizedBox(height: 20),
+              _buildTextField(
+                label: "Nombre",
+                controller: nameController,
+                icon: Icons.person,
+              ),
+              const SizedBox(height: 30),
+              _buildActionButton(
+                text: "Actualizar Información",
+                onPressed: _updateUserName,
+              ),
+              const SizedBox(height: 15),
+              _buildActionButton(
+                text: "Restablecer Contraseña",
+                onPressed: _resetPassword,
+              ),
+              const SizedBox(height: 30),
+              _buildActionButton(
+                text: "Cerrar Sesión",
+                onPressed: _logout,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-// Método para construir cada fila de información
-Widget _buildUserInfoRow(String label, String value) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.center, // Centra la fila
-    children: [
-      Icon(
-        Icons.info_outline,
-        color: Colors.black, // Color negro
-        size: 20,
-      ),
-      const SizedBox(width: 10),
-      Text(
-        "$label$value",
-        style: TextStyle(fontSize: 18, color: Colors.black), // Solo texto negro
-      ),
-    ],
-  );
-}
+  Widget _buildUserInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.info_outline, color: Colors.black, size: 20),
+        const SizedBox(width: 10),
+        Text(
+          "$label$value",
+          style: TextStyle(fontSize: 18, color: Colors.black),
+        ),
+      ],
+    );
+  }
 
-Widget _buildTextField({
+  Widget _buildTextField({
   required String label,
   required TextEditingController controller,
   required IconData icon,
 }) {
   return Container(
-    width: double.infinity, // Ancho completo
+    width: double.infinity,
     child: TextField(
       controller: controller,
       decoration: InputDecoration(
@@ -627,85 +734,48 @@ Widget _buildTextField({
         prefixIcon: Icon(icon, color: Colors.black),
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(
+        enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.black.withOpacity(0.3), width: 1), // Borde sutil
+          borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.black, width: 1),
+          borderSide: BorderSide(color: Colors.black),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+        contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 20),
       ),
     ),
   );
 }
 
-
-// Método para construir un botón estilizado
-Widget _buildActionButton({
-  required String text,
-  required VoidCallback onPressed,
-}) {
-  return Container(
-    width: double.infinity * 0.9, // Un poco más pequeño que el ancho completo
-    child: ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.black,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildActionButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: EdgeInsets.symmetric(vertical: 18, horizontal: 30),
+          elevation: 5,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 30),
-        elevation: 5,
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-    ),
-  );
-}
-Widget _buildUserInfoCard(String label, String value) {
-  return Container(
-    width: double.infinity, // Ancho completo
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: Colors.white, // Fondo blanco
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.black.withOpacity(0.3), width: 1), // Borde sutil negro
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.1), // Sombra ligera para profundidad
-          offset: Offset(0, 4),
-          blurRadius: 6,
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Icon(
-          Icons.info_outline,
-          color: Colors.black,
-          size: 20,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            "$label$value",
-            style: TextStyle(fontSize: 16, color: Colors.black),
-            overflow: TextOverflow.ellipsis, // Evita que el texto se desborde
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
-      ],
-    ),
-  );
-}
-  // Tarjeta para mostrar cada evento
+      ),
+    );
+  }
+
   Widget _buildEventCard(Map<String, String> event) {
     bool isFavorite = favoriteEvents.contains(event);
     return Card(
@@ -743,4 +813,3 @@ Widget _buildUserInfoCard(String label, String value) {
     );
   }
 }
-
