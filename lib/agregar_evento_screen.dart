@@ -59,35 +59,39 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   }
 
   Future<void> _submitEvent() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      print("Formulario no válido");
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      // Usamos una imagen de placeholder si no se selecciona una
+      // Placeholder temporal (esto se reemplaza si usas Firebase Storage después)
       final imageUrl = _imageFile != null 
-          ? 'https://via.placeholder.com/400' // Reemplazar si luego implementas Storage
+          ? 'https://via.placeholder.com/400' 
           : 'https://via.placeholder.com/400?text=${_nombreController.text}';
 
       await FirebaseFirestore.instance.collection('eventos').add({
-        'eventName': _nombreController.text,
-        'descripcion': _descripcionController.text,
-        'localidad': _localidadSeleccionada,
-        'fecha': _fechaController.text,
-        'tipo': _tipoSeleccionado,
-        'image': imageUrl,
-        'createdBy': widget.user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
+  'eventName': _nombreController.text,
+  'descripcion': _descripcionController.text,
+  'localidad': _localidadSeleccionada,
+  'fecha': _fechaController.text,
+  'tipo': _tipoSeleccionado,
+  'image': 'https://via.placeholder.com/400?text=${_nombreController.text}',
+  'createdBy': widget.user.uid,
+  'createdAt': FieldValue.serverTimestamp(), // Este campo es crucial
+});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Evento creado exitosamente!'),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.pop(context);
+      // En _submitEvent():
+Navigator.pop(context, true); // En lugar de solo pop(context)
     } catch (e) {
+      print('Error al crear evento: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al crear evento: $e'),
@@ -97,6 +101,36 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildImagePreview() {
+    if (_imageFile == null) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
+          SizedBox(height: 10),
+          Text('Agregar imagen del evento'),
+        ],
+      );
+    }
+
+    return Image.file(
+      _imageFile!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image, size: 50, color: Colors.red),
+              SizedBox(height: 10),
+              Text('Error al cargar la imagen'),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -119,7 +153,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Sección de imagen
                     GestureDetector(
                       onTap: _pickImage,
                       child: Container(
@@ -130,20 +163,10 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.grey),
                         ),
-                        child: _imageFile != null
-                            ? Image.file(_imageFile!, fit: BoxFit.cover)
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
-                                  SizedBox(height: 10),
-                                  Text('Agregar imagen del evento'),
-                                ],
-                              ),
+                        child: _buildImagePreview(),
                       ),
                     ),
                     SizedBox(height: 20),
-                    // Campos del formulario
                     TextFormField(
                       controller: _nombreController,
                       decoration: InputDecoration(
@@ -228,7 +251,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                         style: TextStyle(fontSize: 16),
                       ),
                     ),
-                  ],
+                  ],  
                 ),
               ),
             ),

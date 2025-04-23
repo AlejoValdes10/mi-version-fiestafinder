@@ -42,39 +42,40 @@ class HomeScreenState extends State<HomeScreen> {
   String selectedType = "Todos";
 
   @override
-  void initState() {
-    super.initState();
-    _getUserData();
-    _setupEventListeners();
-    searchController.addListener(_filterEvents);
-  }
+void initState() {
+  super.initState();
+  _getUserData();
+  _setupEventListeners(); // Cargar eventos al iniciar
+  searchController.addListener(_filterEvents);
+}
 
-  // 1. Mejoramos la carga de datos con Stream para actualizaciones en tiempo real
-  void _setupEventListeners() {
-    FirebaseFirestore.instance
-        .collection('eventos')
-        .snapshots()
-        .listen((snapshot) {
-      final loadedEvents = snapshot.docs.map((doc) {
-        return {
-          'id': doc.id,
-          'name': doc['eventName'],
-          'image': doc['image'],
-          'localidad': doc['localidad'],
-          'fecha': doc['fecha'],
-          'tipo': doc['tipo'],
-          'descripcion': doc['descripcion'] ?? '',
-        };
-      }).toList();
-      
-      if (mounted) {
-        setState(() {
-          events = loadedEvents;
-          _filterEvents();
-        });
-      }
-    });
-  }
+void _setupEventListeners() {
+  FirebaseFirestore.instance
+      .collection('eventos')
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .listen((snapshot) {
+    if (mounted) {
+      setState(() {
+        events = snapshot.docs.map((doc) {
+          return {
+            'id': doc.id,
+            'name': doc['eventName'],
+            'image': doc['image'],
+            'localidad': doc['localidad'],
+            'fecha': doc['fecha'],
+            'tipo': doc['tipo'],
+            'descripcion': doc['descripcion'] ?? '',
+            'createdAt': doc['createdAt'], // Asegúrate de incluir esto
+          };
+        }).toList();
+        _filterEvents();
+      });
+    }
+  });
+}
+
+
 
   // 2. Mejoramos el manejo de errores
   Future<void> _getUserData() async {
@@ -190,15 +191,20 @@ Widget build(BuildContext context) {
       actions: [
         if (tipoPersona == "Empresario")
           IconButton(
-            icon: Icon(Icons.add_box_rounded, size: 28, color: Colors.black),
-            tooltip: 'Agregar evento',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AgregarEventoScreen(user: widget.user),
-              ),
-            ),
-          ),
+  icon: Icon(Icons.add_box_rounded, size: 28, color: Colors.black),
+  tooltip: 'Agregar evento',
+  onPressed: () async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AgregarEventoScreen(user: widget.user),
+      ),
+    );
+    if (result == true) {
+      _setupEventListeners(); // Recargar eventos
+    }
+  },
+),
         SizedBox(width: 8), // Espacio entre botones
         IconButton(
           icon: Icon(Icons.logout, size: 28, color: Colors.black),
