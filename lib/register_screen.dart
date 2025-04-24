@@ -5,7 +5,6 @@ import 'package:fiesta_finder/login_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
 
-
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -39,7 +38,7 @@ class RegisterScreenState extends State<RegisterScreen> {
     return RegExp(r'^[0-9]+$').hasMatch(str);
   }
 
-   Future<void> _register() async {
+  Future<void> _register() async {
     if (!_isEmailValid(emailController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Correo inválido')),
@@ -95,44 +94,38 @@ class RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-
-
   Future<void> _registerWithGoogle() async {
-  // Desconectar la cuenta de Google actual para forzar la aparición de la ventana emergente
-  await GoogleSignIn().signOut();
-  
-  // Mostrar una alerta antes de continuar con el registro por Google
-  bool shouldRegisterAsUser = false;
+    await GoogleSignIn().signOut();
+    bool shouldRegisterAsUser = false;
 
-  // Mostrar el AlertDialog
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('¿Registrarse como Usuario?'),
-        content: Text('Si te registras con Google, serás registrado como Usuario. Si deseas registrarte como Empresario, debes llenar los datos adicionales.'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              shouldRegisterAsUser = true;
-            },
-            child: Text('Registrar como Usuario'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              shouldRegisterAsUser = false;
-            },
-            child: Text('Cancelar'),
-          ),
-        ],
-      );
-    },
-  ).then((_) async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('¿Registrarse como Usuario?'),
+          content: Text('Si te registras con Google, serás registrado como Usuario. Si deseas registrarte como Empresario, debes llenar los datos adicionales.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                shouldRegisterAsUser = true;
+              },
+              child: Text('Registrar como Usuario'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                shouldRegisterAsUser = false;
+              },
+              child: Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+
     if (shouldRegisterAsUser) {
       try {
-        // Iniciar sesión con Google después de cerrar la sesión previa
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
         final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
 
@@ -143,11 +136,10 @@ class RegisterScreenState extends State<RegisterScreen> {
 
         UserCredential userCredential = await _auth.signInWithCredential(credential);
 
-        // Registro en Firestore como Usuario
         await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
           'nombre': userCredential.user?.displayName ?? '',
           'correo': userCredential.user?.email ?? '',
-          'tipoPersona': 'Usuario', // Asumimos como Usuario por defecto
+          'tipoPersona': 'Usuario',
         });
 
         Navigator.pushReplacement(
@@ -160,107 +152,157 @@ class RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrarse con Google: $e')));
       }
     }
-  });
-}
-
-
+  }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: SingleChildScrollView(
-      physics: BouncingScrollPhysics(),
-      child: Container(
-        color: Color(0xFFFDF3F9),
-        padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 40.0),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset('assets/ff.png', height: 90),
-              const SizedBox(height: 15),
-              const Text(
-                'Crear Cuenta',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Container(
+                color: const Color(0xFFFDF3F9),
+                padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/ff.png', height: 90),
+                      const SizedBox(height: 15),
+                      const Text(
+                        'Crear Cuenta',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildTextField(nameController, 'Nombre', Icons.person),
+                      const SizedBox(height: 12),
+                      _buildTextField(emailController, 'Correo', Icons.email,
+                          keyboardType: TextInputType.emailAddress),
+                      const SizedBox(height: 12),
+                      _buildDropdown(
+                        'Tipo de documento',
+                        documentType,
+                        ['Cédula', 'Cédula extranjera'],
+                        (value) {
+                          setState(() {
+                            documentType = value!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        documentNumberController,
+                        'Número de documento',
+                        Icons.badge,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                        passwordController,
+                        'Contraseña',
+                        Icons.lock,
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDropdown(
+                        'Tipo de persona',
+                        personType,
+                        ['Usuario', 'Empresario'],
+                        (value) {
+                          setState(() {
+                            personType = value!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      if (personType == 'Empresario')
+                        _buildTextField(
+                          nitController,
+                          'NIT de la empresa',
+                          Icons.business,
+                          keyboardType: TextInputType.number,
+                        ),
+                      const SizedBox(height: 20),
+                      _buildElevatedButton(
+                        'Registrarse',
+                        _register,
+                        const Color.fromARGB(255, 39, 48, 176),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildGoogleButton(),
+                      const SizedBox(height: 15),
+                      _buildLoginText(),
+                      SizedBox(height: constraints.maxHeight * 0.1),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
-              _buildTextField(nameController, 'Nombre', Icons.person),
-              const SizedBox(height: 12),
-              _buildTextField(emailController, 'Correo', Icons.email, keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 12),
-              _buildDropdown('Tipo de documento', documentType, ['Cédula', 'Cédula extranjera'], (value) {
-                setState(() {
-                  documentType = value!;
-                });
-              }),
-              const SizedBox(height: 12),
-              _buildTextField(documentNumberController, 'Número de documento', Icons.badge, keyboardType: TextInputType.number),
-              const SizedBox(height: 12),
-              _buildTextField(passwordController, 'Contraseña', Icons.lock, obscureText: true),
-              const SizedBox(height: 12),
-              _buildDropdown('Tipo de persona', personType, ['Usuario', 'Empresario'], (value) {
-                setState(() {
-                  personType = value!;
-                });
-              }),
-              const SizedBox(height: 12),
-              if (personType == 'Empresario') _buildTextField(nitController, 'NIT de la empresa', Icons.business, keyboardType: TextInputType.number),
-              const SizedBox(height: 20),
-              _buildElevatedButton('Registrarse', _register, Color.fromARGB(255, 39, 48, 176)),
-              const SizedBox(height: 10),
-              _buildGoogleButton(),
-              const SizedBox(height: 15),
-              _buildLoginText(),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
-    ),
-  );
-}
+    );
+  }
 
-// Botón de Google optimizado
-Widget _buildGoogleButton() {
-  return SizedBox(
-    width: 250,
-    child: Row(
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      width: 250,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: _registerWithGoogle,
+            icon: Image.asset('assets/google.png', width: 40, height: 40),
+            tooltip: 'Registrarse con Google',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginText() {
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          onPressed: _registerWithGoogle,
-          icon: Image.asset('assets/google.png', width: 40, height: 40),
-          tooltip: 'Registrarse con Google',
+        const Text('¿Ya tienes cuenta? '),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          },
+          child: const Text(
+            'Inicia sesión',
+            style: TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-// Texto de inicio de sesión optimizado
-Widget _buildLoginText() {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      const Text('¿Ya tienes cuenta? '),
-      GestureDetector(
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => LoginScreen()));
-        },
-        child: const Text(
-          'Inicia sesión',
-          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-        ),
-      ),
-    ],
-  );
-}
-
-
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType keyboardType = TextInputType.text, bool obscureText = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+  }) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Color.fromARGB(255, 39, 48, 176)),
+        prefixIcon: Icon(icon, color: const Color.fromARGB(255, 39, 48, 176)),
         labelText: label,
         labelStyle: const TextStyle(color: Colors.black54),
         filled: true,
@@ -275,36 +317,43 @@ Widget _buildLoginText() {
     );
   }
 
-
-
-Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
-  return DropdownButtonFormField<String>(
-    value: value,
-    items: items.map((type) => DropdownMenuItem(
-      value: type, 
-      child: Text(type, style: TextStyle(fontSize: 16)),
-    )).toList(),
-    onChanged: onChanged,
-    decoration: InputDecoration(
-      prefixIcon: Icon(Icons.list, color: Color.fromARGB(255, 39, 48, 176)),
-      labelText: label,
-      labelStyle: TextStyle(color: Colors.black54),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(25),
-        borderSide: BorderSide.none,
+  Widget _buildDropdown(
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items
+          .map((type) => DropdownMenuItem(
+                value: type,
+                child: Text(type, style: const TextStyle(fontSize: 16)),
+              ))
+          .toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        prefixIcon: Icon(Icons.list, color: const Color.fromARGB(255, 39, 48, 176)),
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.black54),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: BorderSide.none,
+        ),
       ),
-    ),
-    menuMaxHeight: 300, // Limita la altura para evitar que se trabe
-    isExpanded: true, // Evita cortes en textos largos
-    icon: Icon(Icons.keyboard_arrow_down, color: Colors.black54),
-  );
-}
+      menuMaxHeight: 300,
+      isExpanded: true,
+      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+    );
+  }
 
-
-
-  Widget _buildElevatedButton(String label, VoidCallback onPressed, Color color) {
+  Widget _buildElevatedButton(
+    String label,
+    VoidCallback onPressed,
+    Color color,
+  ) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(

@@ -41,42 +41,154 @@ class HomeScreenState extends State<HomeScreen> {
   String selectedDate = "Todas";
   String selectedType = "Todos";
 
-  @override
-void initState() {
-  super.initState();
-  _getUserData();
-  _setupEventListeners(); // Cargar eventos al iniciar
-  searchController.addListener(_filterEvents);
+  Future<void> _approveEvent(String eventId) async {
+  await FirebaseFirestore.instance
+      .collection('eventos')
+      .doc(eventId)
+      .update({'status': 'approved'});
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("Evento aprobado")),
+  );
 }
 
-void _setupEventListeners() {
+Future<void> _rejectEvent(String eventId) async {
+  final reason = await showDialog<String>(
+    context: context,
+    builder: (context) {
+      final controller = TextEditingController();
+      return AlertDialog(
+        title: Text("Razón de rechazo"),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: "Ingrese la razón"),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text("Enviar"),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (reason != null) {
+    await FirebaseFirestore.instance
+        .collection('eventos')
+        .doc(eventId)
+        .update({
+          'status': 'rejected',
+          'rejectionReason': reason,
+          'rejectedAt': FieldValue.serverTimestamp(),
+          'reviewedBy': widget.user.uid,
+        });
+  }
+}
+
+  @override
+  void initState() {
+    super.initState();
+    _verifyEventStructure(); // Solo una llamada aquí
+    _getUserData();
+    _setupEventListeners();
+    searchController.addListener(_filterEvents);
+  }
+
+  // 1. Mejoramos la carga de datos con Stream para actualizaciones en tiempo real
+  void _setupEventListeners() {
   FirebaseFirestore.instance
       .collection('eventos')
-      .orderBy('createdAt', descending: true)
+      //.where('status', isEqualTo: 'approved') // Elimina esto si no existe
+      .orderBy('fecha', descending: true) // Usa 'fecha' en lugar de 'createdAt'
       .snapshots()
       .listen((snapshot) {
     if (mounted) {
       setState(() {
         events = snapshot.docs.map((doc) {
-          return {
-            'id': doc.id,
-            'name': doc['eventName'],
-            'image': doc['image'],
-            'localidad': doc['localidad'],
-            'fecha': doc['fecha'],
-            'tipo': doc['tipo'],
-            'descripcion': doc['descripcion'] ?? '',
-            'createdAt': doc['createdAt'], // Asegúrate de incluir esto
-          };
-        }).toList();
+  final data = doc.data() as Map<String, dynamic>;
+  return {
+    'id': doc.id,
+    'name': _getString(data, ['eventName', 'nombre']),
+    'image': _getString(data, ['image', 'imagen'], defaultValue: 'https://via.placeholder.com/400'),
+    'localidad': _getString(data, ['localidad', 'ubicacion']),
+    'fecha': _formatDate(data['fecha'] ?? data['fechaTimestamp']),
+    'tipo': _getString(data, ['tipo']),
+    'descripcion': _getString(data, ['descripcion']),
+    'createdAt': data['createdAt'] is Timestamp 
+        ? data['createdAt'] 
+        : Timestamp.now(),
+    'creatorId': _getString(data, ['creatorId', 'empresarioId', 'createdBy']),
+  };
+}).toList();
         _filterEvents();
       });
     }
   });
 }
+String _getString(Map<String, dynamic> data, List<String> possibleKeys, {String? defaultValue}) {
+  for (var key in possibleKeys) {
+    if (data[key] != null && data[key] is String) {
+      return data[key];
+    }
+  }
+  return defaultValue ?? '';
+}
 
+String _formatDate(dynamic date) {
+  if (date == null) return 'Sin fecha';
+  if (date is String) return date;
+  if (date is Timestamp) {
+    final DateTime dt = date.toDate();
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+  if (date is DateTime) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+  return date.toString();
+}
 
+  // Método para formatear la fecha
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return 'Sin fecha';
+    final date = timestamp.toDate();
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
+  // 2. Verificación de estructura de eventos
+
+// Método único de verificación - ¡Solo debe existir una vez!
+  Future<void> _verifyEventStructure() async {
+  try {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('eventos')
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      debugPrint("No hay eventos en la colección");
+      return;
+    }
+
+    final eventData = snapshot.docs.first.data();
+    debugPrint("Estructura actual del evento:");
+    debugPrint(eventData.toString());
+    
+    // Verifica campos existentes en lugar de los esperados
+    if (eventData['nombre'] == null) {
+      debugPrint("Advertencia: Campo 'nombre' no encontrado (se usa como nombre del evento)");
+    }
+    if (eventData['fecha'] == null) {
+      debugPrint("Advertencia: Campo 'fecha' no encontrado (se usa para ordenar)");
+    }
+  } catch (e) {
+    debugPrint("Error verificando estructura: $e");
+  }
+}
   // 2. Mejoramos el manejo de errores
   Future<void> _getUserData() async {
     try {
@@ -168,6 +280,8 @@ void _setupEventListeners() {
     );
   }
 
+  
+
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -178,41 +292,94 @@ void _setupEventListeners() {
     );
   }
 
+void _showPendingEventsDialog() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text("Eventos Pendientes"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('eventos')
+                .where('status', isEqualTo: 'pending')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return Center(child: CircularProgressIndicator());
+              }
+              final events = snapshot.data!.docs;
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: events.length,
+                itemBuilder: (context, index) {
+                  final event = events[index];
+                  return ListTile(
+                    title: Text(event['eventName']),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.check, color: Colors.green),
+                          onPressed: () => _approveEvent(event.id),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.red),
+                          onPressed: () => _rejectEvent(event.id),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      );
+    },
+  );
+}
   @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: Colors.white,
     appBar: AppBar(
-      automaticallyImplyLeading: false,
-      title: null,
-      elevation: 0,
-      backgroundColor: Colors.white,
-      toolbarHeight: kToolbarHeight,
-      actions: [
-        if (tipoPersona == "Empresario")
-          IconButton(
-  icon: Icon(Icons.add_box_rounded, size: 28, color: Colors.black),
-  tooltip: 'Agregar evento',
-  onPressed: () async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AgregarEventoScreen(user: widget.user),
-      ),
-    );
-    if (result == true) {
-      _setupEventListeners(); // Recargar eventos
-    }
-  },
-),
-        SizedBox(width: 8), // Espacio entre botones
-        IconButton(
-          icon: Icon(Icons.logout, size: 28, color: Colors.black),
-          tooltip: 'Cerrar sesión',
-          onPressed: _confirmLogout, // Método de confirmación
-        ),
-      ],
+  automaticallyImplyLeading: false,
+  title: null,
+  elevation: 0,
+  backgroundColor: Colors.white,
+  toolbarHeight: kToolbarHeight,
+  actions: [
+    IconButton(
+      icon: Icon(Icons.calendar_today, size: 28, color: Colors.black),
+      tooltip: 'Mis eventos',
+      onPressed: () => _showMyEventsDialog(), // Nuevo método
     ),
+    if (tipoPersona == "Empresario")
+      IconButton(
+        icon: Icon(Icons.add_box_rounded, size: 28, color: Colors.black),
+        tooltip: 'Agregar evento',
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AgregarEventoScreen(user: widget.user),
+          ),
+        ),
+      ),
+    SizedBox(width: 8),
+    if (tipoPersona == "Admin")
+      IconButton(
+        icon: Icon(Icons.pending_actions, size: 28, color: Colors.black),
+        onPressed: () => _showPendingEventsDialog(),
+      ),
+    IconButton(
+      icon: Icon(Icons.logout, size: 28, color: Colors.black),
+      tooltip: 'Cerrar sesión',
+      onPressed: _confirmLogout,
+    ),
+  ],
+),
     body: Column(
       children: [
         _buildUserHeader(),
@@ -227,6 +394,172 @@ Widget build(BuildContext context) {
   );
 }
 
+void _showMyEventsDialog() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("Mis Eventos"),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: DefaultTabController(
+          length: tipoPersona == "Admin" ? 4 : 3,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TabBar(
+                isScrollable: true,
+                tabs: [
+                  if (tipoPersona == "Admin") Tab(text: "Pendientes"),
+                  Tab(text: "Aprobados"),
+                  Tab(text: "Rechazados"),
+                  Tab(text: "Mis Creaciones"),
+                ],
+              ),
+              SizedBox(
+                height: 300,
+                child: TabBarView(
+                  children: [
+                    if (tipoPersona == "Admin") 
+                      _buildEventList('pending'),
+                    _buildEventList('approved'),
+                    _buildEventList('rejected'),
+                    _buildMyCreatedEvents(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.refresh),
+          onPressed: () {
+            Navigator.pop(context);
+            _showMyEventsDialog(); // Recarga el diálogo
+          },
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("Cerrar"),
+        ),
+      ],
+    ),
+  );
+}
+
+  Widget _buildEventList(String status) {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('eventos')
+        .where('status', isEqualTo: status)
+        .orderBy('createdAt', descending: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(child: CircularProgressIndicator());
+      }
+
+      if (snapshot.hasError) {
+        return Center(child: Text('Error: ${snapshot.error}'));
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return Center(child: Text('No hay eventos $status'));
+      }
+
+      final events = snapshot.data!.docs;
+
+      return ListView.builder(
+        shrinkWrap: true,
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final doc = events[index];
+          final event = doc.data() as Map<String, dynamic>;
+          
+          return ListTile(
+            leading: event['image'] != null 
+                ? Image.network(event['image'], width: 50, height: 50)
+                : Icon(Icons.event),
+            title: Text(event['eventName'] ?? 'Sin nombre'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Estado: ${event['status']}"),
+                if (status == 'rejected' && event['rejectionReason'] != null)
+                  Text("Razón: ${event['rejectionReason']}"),
+                Text("Fecha: ${event['fecha'] ?? 'Sin fecha'}"),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Widget _buildMyCreatedEvents() {
+  if (tipoPersona != "Empresario") {
+    return Center(child: Text("Solo disponible para empresarios"));
+  }
+
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('eventos')
+        .where('creatorId', isEqualTo: widget.user.uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(child: CircularProgressIndicator());
+      }
+
+      if (snapshot.hasError) {
+        return Center(child: Text('Error: ${snapshot.error}'));
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.event_note, size: 50, color: Colors.grey),
+              SizedBox(height: 10),
+              Text("No has creado eventos aún"),
+            ],
+          ),
+        );
+      }
+
+      final events = snapshot.data!.docs;
+
+      return ListView.builder(
+        shrinkWrap: true,
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final doc = events[index];
+          final event = doc.data() as Map<String, dynamic>;
+          
+          return ListTile(
+            leading: event['image'] != null 
+                ? Image.network(event['image'], width: 50, height: 50)
+                : Icon(Icons.event),
+            title: Text(event['eventName'] ?? 'Sin nombre'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Estado: ${event['status'] ?? 'Sin estado'}"),
+                if (event['status'] == 'rejected' && event['rejectionReason'] != null)
+                  Text("Razón: ${event['rejectionReason']}"),
+                Text("Fecha: ${event['fecha'] ?? 'Sin fecha'}"),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 // Método para confirmar cierre de sesión
 Future<void> _confirmLogout() async {
   final confirmed = await showDialog<bool>(
@@ -465,3 +798,4 @@ Future<void> _logout() async {
     super.dispose();
   }
 }
+
