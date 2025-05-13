@@ -81,27 +81,24 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     final fechaEvento = DateFormat('yyyy-MM-dd').parse(_fechaController.text);
     final imageUrl = await _uploadImage(_imageFile);
 
-    await FirebaseFirestore.instance.collection('eventos').add({
-      // Campos principales (nuevo formato)
-      'eventName': _nombreController.text,
-      'descripcion': _descripcionController.text,
-      'localidad': _localidadSeleccionada,
-      'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento), // String
-      'fechaTimestamp': Timestamp.fromDate(fechaEvento), // Timestamp
-      'tipo': _tipoSeleccionado,
-      'image': imageUrl,
-      'creatorId': widget.user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-      'status': 'pending',
-      
-      // Campos compatibilidad (puedes eliminar luego)
-      'nombre': _nombreController.text,
-      'ubicacion': _localidadSeleccionada,
-      'imagen': imageUrl,
-      'empresarioId': widget.user.uid,
-    });
+    // En tu método que crea/actualiza eventos:
+await FirebaseFirestore.instance.collection('eventos').add({
+  'eventName': _nombreController.text,
+  'descripcion': _descripcionController.text,
+  'localidad': _localidadSeleccionada,
+  'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
+  'fechaTimestamp': Timestamp.fromDate(fechaEvento),
+  'tipo': _tipoSeleccionado,
+  'image': imageUrl ?? 'https://via.placeholder.com/150', // Valor por defecto
+  'creatorId': widget.user.uid,
+  'createdAt': FieldValue.serverTimestamp(),
+  'status': 'pending',
+});
 
-    Navigator.pop(context, true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Evento enviado para aprobación')),
+    );
+    Navigator.pop(context);
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Error: ${e.toString()}')),

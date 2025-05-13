@@ -6,18 +6,25 @@ class UserProfileSection extends StatelessWidget {
   final String userName;
   final String email;
   final String cedula;
+  final String phoneNumber;  // Asegúrate de tener este parámetro
   final TextEditingController nameController;
+  final TextEditingController phoneController;  // Y este también
   final VoidCallback onUpdate;
+  final ValueChanged<String> onPhoneUpdate;  // Y este callback
   final VoidCallback onResetPassword;
   final VoidCallback onLogout;
 
-  const UserProfileSection({
+    const UserProfileSection({
+    super.key,
     required this.user,
     required this.userName,
     required this.email,
     required this.cedula,
+    required this.phoneNumber,
     required this.nameController,
+    required this.phoneController,
     required this.onUpdate,
+    required this.onPhoneUpdate,
     required this.onResetPassword,
     required this.onLogout,
   });

@@ -79,5 +79,6 @@ flutter:
     - assets/ff2.png
     - assets/splash2.gif
     - assets/listo.json
+    - assets/no_events.json
     
     

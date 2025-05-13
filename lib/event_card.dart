@@ -26,15 +26,19 @@ class EventCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               child: CachedNetworkImage(
-                imageUrl: event['image'],
-                height: 120,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => Icon(Icons.error),
-              ),
+  imageUrl: event['image']?.isNotEmpty == true 
+      ? event['image'] 
+      : 'https://via.placeholder.com/400?text=Imagen+no+disponible',
+  placeholder: (context, url) => Container(
+    color: Colors.grey[200],
+    child: Center(child: Icon(Icons.image, color: Colors.grey)),
+  ),
+  errorWidget: (context, url, error) => Container(
+    color: Colors.grey[200],
+    child: Center(child: Icon(Icons.broken_image, color: Colors.red)),
+  ),
+  fit: BoxFit.cover,
+),
             ),
             Padding(
               padding: EdgeInsets.all(8),
@@ -53,7 +57,7 @@ class EventCard extends StatelessWidget {
                   SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 14, color: Colors.grey),
+                      Icon(Icons.location_on, size: 14, color: const Color.fromARGB(255, 73, 10, 10)),
                       SizedBox(width: 4),
                       Text(
                         event['localidad'],
@@ -81,7 +85,7 @@ class EventCard extends StatelessWidget {
               child: IconButton(
                 icon: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.red : Colors.grey,
+                  color: isFavorite ? const Color.fromARGB(255, 46, 45, 45) : Colors.grey,
                 ),
                 onPressed: () => onToggleFavorite(event),
               ),

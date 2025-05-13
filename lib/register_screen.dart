@@ -67,6 +67,12 @@ class RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+    if (personType == 'Administrador' && !emailController.text.endsWith('@admin.com')) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Los administradores deben registrarse con un correo @admin.com')),
+  );
+  return;
+}
 
     try {
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
@@ -75,13 +81,14 @@ class RegisterScreenState extends State<RegisterScreen> {
       );
 
       await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
-        'nombre': nameController.text.trim(),
-        'correo': emailController.text.trim(),
-        'tipoDocumento': documentType,
-        'numeroDocumento': documentNumberController.text.trim(),
-        'tipoPersona': personType,
-        if (personType == 'Empresario') 'NIT': nitController.text.trim(),
-      });
+  'nombre': nameController.text.trim(),
+  'correo': emailController.text.trim(),
+  'tipoDocumento': documentType,
+  'numeroDocumento': documentNumberController.text.trim(),
+  'tipoPersona': personType,
+  if (personType == 'Empresario') 'NIT': nitController.text.trim(),
+  'isAdmin': personType == 'Administrador', // Agregar este campo
+});
 
       Navigator.pushReplacement(
         context,
@@ -213,15 +220,18 @@ class RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 12),
                       _buildDropdown(
-                        'Tipo de persona',
-                        personType,
-                        ['Usuario', 'Empresario'],
-                        (value) {
-                          setState(() {
-                            personType = value!;
-                          });
-                        },
-                      ),
+  'Tipo de persona',
+  personType,
+  ['Usuario', 'Empresario', 'Administrador'], // Agregar 'Administrador'
+  (value) {
+    setState(() {
+      personType = value!;
+      if (value != 'Empresario') {
+        nitController.clear();
+      }
+    });
+  },
+),
                       const SizedBox(height: 12),
                       if (personType == 'Empresario')
                         _buildTextField(
@@ -368,3 +378,4 @@ class RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+
