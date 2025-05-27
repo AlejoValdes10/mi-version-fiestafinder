@@ -119,26 +119,62 @@ Future<void> _setupEventListeners() async {
   });
 
   try {
-    Query query = FirebaseFirestore.instance.collection('eventos');
+    Query query;
+    final userId = widget.user.uid;
+
+    debugPrint("🟢 Usuario: $tipoPersona | ID: $userId");
 
     // Filtrado por tipo de usuario
     if (tipoPersona == "Administrador") {
-      query = query.orderBy('fechaTimestamp', descending: true);
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .orderBy('fechaTimestamp', descending: true);
     } 
-   else if (tipoPersona == "Empresario") {
-  query = FirebaseFirestore.instance
-      .collection('eventos')
-      .where('creatorId', isEqualTo: widget.user.uid)
-      .where('status', whereIn: ['approved', 'rejected', 'pending'])  // Filtra múltiples estados
-      .orderBy('status')  // Ordena por estado primero
-      .orderBy('fechaTimestamp', descending: true);  // Luego por fecha
-}
+    else if (tipoPersona == "Empresario") {
+      // Verificación explícita de permisos
+      final userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(userId)
+          .get();
+
+      if (userDoc.data()?['tipoPersona'] != 'Empresario') {
+        throw Exception('El usuario no tiene permisos de empresario');
+      }
+
+      // CONSULTA PRINCIPAL CON MANEJO DE ERRORES
+      try {
+        query = FirebaseFirestore.instance
+    .collection('eventos')
+    .where('creatorId', isEqualTo: widget.user.uid)
+    .where('status', isEqualTo: 'approved') // ✅ Compatible con reglas
+    .orderBy('fechaTimestamp', descending: true);
+
+
+        // Prueba la consulta
+        final testQuery = await query.limit(1).get();
+        debugPrint("✅ Consulta válida. Eventos encontrados: ${testQuery.docs.length}");
+      } catch (e) {
+        debugPrint("🔴 Error en consulta: ${e.toString()}");
+        if (e is FirebaseException && e.code == 'failed-precondition') {
+          debugPrint("Se requiere índice compuesto: ${e.message}");
+          // Consulta alternativa temporal
+          query = FirebaseFirestore.instance
+              .collection('eventos')
+              .where('creatorId', isEqualTo: userId)
+              .orderBy('fechaTimestamp', descending: true);
+        } else {
+          rethrow;
+        }
+      }
+    }
     else {
-      query = query.where('status', isEqualTo: 'approved')
-                  .orderBy('fechaTimestamp', descending: true);
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .where('status', isEqualTo: 'approved')
+          .orderBy('fechaTimestamp', descending: true);
     }
 
-    // Usar snapshots para cambios en tiempo real
+    // Stream de eventos en tiempo real
     query.snapshots().listen((snapshot) {
       if (!mounted) return;
       
@@ -152,7 +188,7 @@ Future<void> _setupEventListeners() async {
           'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
           'tipo': data['tipo'] ?? 'General',
           'status': data['status'] ?? 'pending',
-          'creatorId': data['creatorId'] ?? data['empresarioId'] ?? '',
+          'creatorId': data['creatorId'] ?? '',
           'descripcion': data['descripcion'] ?? 'Sin descripción',
         };
       }).toList();
@@ -164,14 +200,20 @@ Future<void> _setupEventListeners() async {
           _filterEvents();
         });
       }
+    }, onError: (e) {
+      debugPrint("Error en stream: ${e.toString()}");
+      if (mounted) {
+        setState(() => _loadingEvents = false);
+        _showErrorSnackBar("Error en tiempo real: ${e.toString()}");
+      }
     });
 
   } catch (e) {
     if (mounted) {
       setState(() => _loadingEvents = false);
+      _showErrorSnackBar("Error al cargar eventos: ${e.toString()}");
     }
-    debugPrint("Error en _setupEventListeners: $e");
-    _showErrorSnackBar("Error al cargar eventos. Intente nuevamente.");
+    debugPrint("Error en _setupEventListeners: ${e.toString()}");
   }
 }
 
@@ -188,7 +230,6 @@ Future<void> _setupEventListeners() async {
     }
     return date.toString();
   }
-
   // Filtrar eventos según búsqueda y filtros
   void _filterEvents() {
   final query = searchController.text.toLowerCase();
@@ -244,6 +285,7 @@ Future<void> _setupEventListeners() async {
         'fecha': event['fecha'],
         'addedAt': FieldValue.serverTimestamp(),
       };
+
       
       await favoritesRef.doc(eventId).set(favoriteData);
       setState(() {
@@ -578,34 +620,39 @@ Future<void> _rejectEvent(String eventId, String creatorId) async {
 
   // Mostrar diálogo de mis eventos
   Future<void> _showMyEventsDialog() async {
+  try {
     if (tipoPersona != "Empresario" && tipoPersona != "Administrador") {
-      _showErrorSnackBar("Solo disponible para empresarios y administradores");
+      _showErrorSnackBar("Acceso solo para empresarios y administradores");
       return;
     }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Mis Eventos"),
+        title: Text(tipoPersona == "Administrador" 
+            ? "Panel de Administración" 
+            : "Mis Eventos"),
         content: SizedBox(
           width: double.maxFinite,
+          height: 400,
           child: DefaultTabController(
-            length: tipoPersona == "Administrador" ? 3 : 2,
+            length: tipoPersona == "Administrador" ? 4 : 2,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 TabBar(
                   isScrollable: true,
                   tabs: [
-                    if (tipoPersona == "Administrador") const Tab(text: "Pendientes"),
-                    const Tab(text: "Aprobados"),
-                    const Tab(text: "Rechazados"),
+                    if (tipoPersona == "Administrador") Tab(text: "Todos"),
+                    if (tipoPersona == "Administrador") Tab(text: "Pendientes"),
+                    Tab(text: "Aprobados"),
+                    Tab(text: "Rechazados"),
                   ],
                 ),
-                SizedBox(
-                  height: 300,
+                Expanded(
                   child: TabBarView(
                     children: [
+                      if (tipoPersona == "Administrador") 
+                        _buildEventList('all'), // Nueva pestaña "Todos"
                       if (tipoPersona == "Administrador") 
                         _buildEventList('pending'),
                       _buildEventList('approved'),
@@ -620,118 +667,104 @@ Future<void> _rejectEvent(String eventId, String creatorId) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cerrar"),
+            child: Text("Cerrar"),
           ),
         ],
       ),
     );
-  }
-
-  // Construir lista de eventos por estado
-  Widget _buildEventList(String status) {
-  String collectionPath = 'eventos';
-  if (tipoPersona == "Empresario") {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(collectionPath)
-          .where('creatorId', isEqualTo: widget.user.uid)
-          .where('status', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) => _buildEventListView(snapshot, status),
-    );
-  } else {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(collectionPath)
-          .where('status', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) => _buildEventListView(snapshot, status),
-    );
+  } catch (e) {
+    debugPrint("Error en diálogo mis eventos: $e");
+    _showErrorSnackBar("Error: ${e.toString()}");
   }
 }
 
-Widget _buildEventListView(AsyncSnapshot<QuerySnapshot> snapshot, String status) {
-  if (snapshot.connectionState == ConnectionState.waiting) {
-    return Center(child: CircularProgressIndicator());
-  }
+  // Construir lista de eventos por estado
+  Widget _buildEventList(String status) {
+  return StreamBuilder<QuerySnapshot>(
+    stream: tipoPersona == "Empresario"
+        ? FirebaseFirestore.instance
+            .collection('eventos')
+            .where('creatorId', isEqualTo: widget.user.uid)
+            .where('status', isEqualTo: status)
+            .orderBy('fechaTimestamp', descending: true)
+            .snapshots()
+        : FirebaseFirestore.instance
+            .collection('eventos')
+            .where('status', isEqualTo: status)
+            .orderBy('fechaTimestamp', descending: true)
+            .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(child: CircularProgressIndicator());
+      }
 
-  if (snapshot.hasError) {
-    return Center(child: Text('Error: ${snapshot.error}'));
-  }
-
-  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_note, size: 50, color: Colors.grey),
-          SizedBox(height: 10),
-          Text('No hay eventos $status'),
-        ],
-      ),
-    );
-  }
-
-  final events = snapshot.data!.docs;
-
-  return ListView.builder(
-    shrinkWrap: true,
-    itemCount: events.length,
-    itemBuilder: (context, index) {
-      final doc = events[index];
-      final event = doc.data() as Map<String, dynamic>;
-      
-      return Card(
-        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: ListTile(
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          leading: SizedBox(
-            width: 50,
-            height: 50,
-            child: event['image'] != null 
-                ? Image.network(
-                    event['image']!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(Icons.event),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      );
-                    },
-                  )
-                : Icon(Icons.event, size: 50),
-          ),
-          title: Text(
-            event['eventName'] ?? 'Evento sin nombre',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      if (snapshot.hasError) {
+        debugPrint("🔥 Error en eventos $status: ${snapshot.error}");
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(height: 4),
-              Text("Estado: ${event['status'] ?? 'Desconocido'}"),
-              if (status == 'rejected' && event['rejectionReason'] != null)
-                Column(
-                  children: [
-                    SizedBox(height: 4),
-                    Text(
-                      "Razón: ${event['rejectionReason']}",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ],
-                ),
-              SizedBox(height: 4),
-              Text("Fecha: ${event['fecha'] ?? 'Sin fecha'}"),
+              Icon(Icons.error, color: Colors.red, size: 50),
+              SizedBox(height: 10),
+              Text("Error al cargar eventos"),
+              TextButton(
+                onPressed: () => _showMyEventsDialog(),
+                child: Text("Reintentar"),
+              ),
             ],
           ),
-        ),
+        );
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.event_available, size: 50, color: Colors.grey),
+              SizedBox(height: 10),
+              Text('No hay eventos $status'),
+            ],
+          ),
+        );
+      }
+
+      final events = snapshot.data!.docs;
+
+      return ListView.builder(
+        shrinkWrap: true,
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final doc = events[index];
+          final event = doc.data() as Map<String, dynamic>;
+          
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundImage: event['image'] != null 
+                    ? NetworkImage(event['image']!) 
+                    : null,
+                child: event['image'] == null 
+                    ? Icon(Icons.event) 
+                    : null,
+              ),
+              title: Text(
+                event['eventName'] ?? 'Evento sin nombre',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Estado: ${_getStatusText(event['status'])}"),
+                  if (event['status'] == 'rejected' && event['rejectionReason'] != null)
+                    Text("Razón: ${event['rejectionReason']}"),
+                  Text("Fecha: ${_formatDate(event['fechaTimestamp'])}"),
+                ],
+              ),
+            ),
+          );
+        },
       );
     },
   );
