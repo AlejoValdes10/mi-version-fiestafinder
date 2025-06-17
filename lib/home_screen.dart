@@ -1,4 +1,3 @@
-// home_screen.dart (versión corregida y simplificada)
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -52,6 +51,7 @@ class HomeScreenState extends State<HomeScreen> {
   @override
 void initState() {
   super.initState();
+  _loadFavorites();
   _loadUserData().then((_) {
     _setupEventListeners().then((_) {
       if (mounted) setState(() => _initialDataLoaded = true);
@@ -98,16 +98,29 @@ Future<void> _loadUserData() async {
         .collection('usuarios')
         .doc(widget.user.uid)
         .collection('favoritos')
+        .orderBy('addedAt', descending: true)
         .get();
-    
+
     if (mounted) {
       setState(() {
         favoriteEvents = favoritesSnapshot.docs
-            .map((doc) => doc.data() as Map<String, dynamic>)
+            .map((doc) {
+              final data = doc.data();
+              return {
+                'id': doc.id,
+                'name': data['name'] ?? 'Evento sin nombre',
+                'image': data['image'] ?? '',
+                'fecha': data['fecha'] ?? 'Sin fecha',
+              };
+            })
             .toList();
+        _loadingFavorites = false;
       });
     }
   } catch (e) {
+    if (mounted) {
+      setState(() => _loadingFavorites = false);
+    }
     debugPrint("Error cargando favoritos: $e");
   }
 }
@@ -184,7 +197,7 @@ Future<void> _setupEventListeners() async {
           'id': doc.id,
           'name': data['eventName'] ?? 'Evento sin nombre',
           'image': data['image'] ?? '',
-          'localidad': data['localidad'] ?? 'Ubicación desconocida',
+          'localidad': data['direccion'] ?? 'Ubicación desconocida',
           'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
           'tipo': data['tipo'] ?? 'General',
           'status': data['status'] ?? 'pending',
@@ -272,12 +285,8 @@ Future<void> _setupEventListeners() async {
     
     if (doc.exists) {
       await favoritesRef.doc(eventId).delete();
-      setState(() {
-        favoriteEvents.removeWhere((e) => e['id'] == eventId);
-      });
       _showSuccessFeedback("Removido de favoritos");
     } else {
-      // Solo guarda los datos esenciales
       final favoriteData = {
         'id': eventId,
         'name': event['name'],
@@ -285,14 +294,13 @@ Future<void> _setupEventListeners() async {
         'fecha': event['fecha'],
         'addedAt': FieldValue.serverTimestamp(),
       };
-
-      
       await favoritesRef.doc(eventId).set(favoriteData);
-      setState(() {
-        favoriteEvents.add(favoriteData);
-      });
       _showSuccessFeedback("Agregado a favoritos");
     }
+    
+    // Forzar recarga de favoritos
+    await _loadFavorites();
+    
   } catch (e) {
     _showErrorSnackBar("Error: ${e.toString()}");
     debugPrint("Error en favoritos: $e");
@@ -695,80 +703,49 @@ Future<void> _rejectEvent(String eventId, String creatorId) async {
             .snapshots(),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
-        return Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator());
       }
 
       if (snapshot.hasError) {
         debugPrint("🔥 Error en eventos $status: ${snapshot.error}");
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error, color: Colors.red, size: 50),
-              SizedBox(height: 10),
-              Text("Error al cargar eventos"),
-              TextButton(
-                onPressed: () => _showMyEventsDialog(),
-                child: Text("Reintentar"),
-              ),
-            ],
-          ),
-        );
+        return const Center(child: Text("Error al cargar eventos"));
       }
 
       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.event_available, size: 50, color: Colors.grey),
-              SizedBox(height: 10),
-              Text('No hay eventos $status'),
-            ],
-          ),
-        );
+        return Center(child: Text("No hay eventos $status"));
       }
 
       final events = snapshot.data!.docs;
 
       return ListView.builder(
-        shrinkWrap: true,
         itemCount: events.length,
         itemBuilder: (context, index) {
           final doc = events[index];
-          final event = doc.data() as Map<String, dynamic>;
-          
-          return Card(
-            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage: event['image'] != null 
-                    ? NetworkImage(event['image']!) 
-                    : null,
-                child: event['image'] == null 
-                    ? Icon(Icons.event) 
-                    : null,
-              ),
-              title: Text(
-                event['eventName'] ?? 'Evento sin nombre',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Estado: ${_getStatusText(event['status'])}"),
-                  if (event['status'] == 'rejected' && event['rejectionReason'] != null)
-                    Text("Razón: ${event['rejectionReason']}"),
-                  Text("Fecha: ${_formatDate(event['fechaTimestamp'])}"),
-                ],
-              ),
-            ),
+          final data = doc.data() as Map<String, dynamic>;
+
+          final event = {
+            ...data,
+            'id': doc.id,
+            // 🔁 Aquí renombramos para que coincidan con los que usa EventCard
+            'name': data['eventName'],
+            'localidad': data['direccion'],
+            'costo': data.containsKey('costo') ? data['costo'] : null,
+          };
+          debugPrint("📦 Evento construido: ${event.toString()}");
+
+          debugPrint("📦 Evento final que se envía a EventCard: $event");
+
+          return EventCard(
+            event: event,
+            isFavorite: false,
+            onToggleFavorite: (e) {},
           );
         },
       );
     },
   );
 }
+
   // Confirmar cierre de sesión
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -1224,42 +1201,48 @@ Widget build(BuildContext context) {
 }
 
   Widget _buildFavoritesScreen() {
-    if (favoriteEvents.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Lottie.asset('assets/no_events.json', width: 200),
-            const Text("No tienes eventos favoritos",
-                style: TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => setState(() => _selectedIndex = 0),
-              child: const Text("Explorar eventos"),
-            ),
-          ],
-        ),
-      );
-    }
+  if (_loadingFavorites) {
+    return Center(child: CircularProgressIndicator());
+  }
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.8,
-        ),
-        itemCount: favoriteEvents.length,
-        itemBuilder: (context, index) => EventCard(
-          event: favoriteEvents[index],
-          isFavorite: true,
-          onToggleFavorite: _toggleFavorite,
-        ),
+  if (favoriteEvents.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite_border, size: 50, color: Colors.grey),
+          SizedBox(height: 10),
+          Text("No tienes eventos favoritos"),
+          TextButton(
+            onPressed: () => setState(() => _selectedIndex = 0),
+            child: Text("Explorar eventos"),
+          ),
+        ],
       ),
     );
   }
+
+  return Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: favoriteEvents.length,
+      itemBuilder: (context, index) {
+        final event = favoriteEvents[index];
+        return EventCard(
+          event: event,
+          isFavorite: true, // Siempre true en esta pantalla
+          onToggleFavorite: _toggleFavorite,
+        );
+      },
+    ),
+  );
+}
 
   @override
   void dispose() {

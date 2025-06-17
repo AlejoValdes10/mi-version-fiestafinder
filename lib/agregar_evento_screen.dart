@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class AgregarEventoScreen extends StatefulWidget {
   final User user;
@@ -27,6 +29,15 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _etiquetasController = TextEditingController();
   final _politicasController = TextEditingController();
   final _fechaController = TextEditingController();
+  final _cuentaBancariaController = TextEditingController();
+  final _nequiController = TextEditingController();
+  final _daviplataController = TextEditingController();
+
+  // Zonas de la ciudad
+  final List<String> _zonas = [
+    'Norte', 'Occidente', 'Oriente', 'Sur', 
+    'Noroccidente', 'Nororiente', 'Suroccidente', 'Suroriente'
+  ];
 
   // Medios de pago
   final List<String> _mediosDePagoDisponibles = [
@@ -37,23 +48,17 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     'Daviplata'
   ];
   List<String> _mediosSeleccionados = [];
-  String _otrosMedios = '';
-
-  String? _localidadSeleccionada;
+  
+  String? _zonaSeleccionada;
   String? _tipoSeleccionado;
   bool _accesibilidad = false;
   bool _parqueadero = false;
-  bool _puertaAPuerta = false;
 
   File? _imageFile;
   bool _isLoading = false;
-  final List<String> _localidades = [
-    'Chapinero', 'Usaquén', 'Teusaquillo', 
-    'Suba', 'Engativá', 'Fontibón'
-  ];
+  LatLng? _ubicacionEvento;
   final List<String> _tiposEvento = [
-    'Concierto', 'Fiesta', 'Cultural', 'Deportivo', 
-    'Académico', 'Gastronómico', 'Otro'
+    'Gastrobar', 'Discotecas', 'Cultural', 'Deportivo'
   ];
 
   Future<void> _pickImage() async {
@@ -91,10 +96,108 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     }
   }
 
+  Future<void> _selectTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Color(0xFF6A11CB),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    
+    if (picked != null) {
+      setState(() {
+        _horaController.text = picked.format(context);
+      });
+    }
+  }
+
+  Future<void> _selectLocation() async {
+  final TextEditingController _direccionInputController = TextEditingController();
+  String? errorText;
+
+  await showDialog<String>(
+    context: context,
+    barrierDismissible: false, // Evita cerrar el diálogo tocando fuera
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Escribir dirección'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _direccionInputController,
+                  decoration: InputDecoration(
+                    hintText: 'Ej. Calle 123 #45-67, Bogotá',
+                    errorText: errorText,
+                  ),
+                  autofocus: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final direccion = _direccionInputController.text.trim();
+                  if (direccion.isEmpty) {
+                    setState(() {
+                      errorText = 'Por favor escribe una dirección.';
+                    });
+                  } else {
+                    Navigator.pop(context, direccion);
+                  }
+                },
+                child: const Text('Aceptar'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  ).then((result) {
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        _direccionController.text = result;
+        _ubicacionEvento = null; // Limpiamos coordenadas si ya no se usan
+      });
+    }
+  });
+}
+
+
+
   Future<void> _submitEvent() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_mediosSeleccionados.isEmpty && _otrosMedios.isEmpty) {
+    if (_mediosSeleccionados.isEmpty) {
       _showErrorSnackBar('Selecciona al menos un medio de pago');
+      return;
+    }
+
+    if (_mediosSeleccionados.contains('Transferencia bancaria') && 
+        _cuentaBancariaController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa la cuenta bancaria');
+      return;
+    }
+    if (_mediosSeleccionados.contains('Nequi') && _nequiController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa el número de Nequi');
+      return;
+    }
+    if (_mediosSeleccionados.contains('Daviplata') && 
+        _daviplataController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa el número de Daviplata');
       return;
     }
 
@@ -116,15 +219,21 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         imageUrl = await _uploadImage(_imageFile!);
       }
 
-      List<String> todosMedios = [
-        ..._mediosSeleccionados,
-        ..._otrosMedios.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
-      ];
+      Map<String, String> infoPagos = {};
+      if (_mediosSeleccionados.contains('Transferencia bancaria')) {
+        infoPagos['cuenta_bancaria'] = _cuentaBancariaController.text.trim();
+      }
+      if (_mediosSeleccionados.contains('Nequi')) {
+        infoPagos['nequi'] = _nequiController.text.trim();
+      }
+      if (_mediosSeleccionados.contains('Daviplata')) {
+        infoPagos['daviplata'] = _daviplataController.text.trim();
+      }
 
       final eventData = {
         'eventName': _nombreController.text.trim(),
         'descripcion': _descripcionController.text.trim(),
-        'localidad': _localidadSeleccionada,
+        'zona': _zonaSeleccionada,
         'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
         'fechaTimestamp': Timestamp.fromDate(fechaEvento),
         'tipo': _tipoSeleccionado,
@@ -135,14 +244,17 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'capacidad': int.tryParse(_capacidadController.text) ?? 0,
         'costo': double.tryParse(_costoController.text) ?? 0.0,
         'direccion': _direccionController.text.trim(),
+        'ubicacion': _ubicacionEvento != null 
+            ? GeoPoint(_ubicacionEvento!.latitude, _ubicacionEvento!.longitude)
+            : null,
         'hora': _horaController.text.trim(),
         'contacto': _contactoController.text.trim(),
         'etiquetas': _etiquetasController.text.split(',').map((e) => e.trim()).toList(),
         'politicas': _politicasController.text.trim(),
         'accesibilidad': _accesibilidad,
         'parqueadero': _parqueadero,
-        'puertaAPuerta': _puertaAPuerta,
-        'mediosPago': todosMedios,
+        'mediosPago': _mediosSeleccionados,
+        'infoPagos': infoPagos,
         'rating': 0,
         'views': 0,
       };
@@ -161,6 +273,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -200,6 +313,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     _etiquetasController.dispose();
     _politicasController.dispose();
     _fechaController.dispose();
+    _cuentaBancariaController.dispose();
+    _nequiController.dispose();
+    _daviplataController.dispose();
     super.dispose();
   }
 
@@ -266,6 +382,11 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                       title: 'Medios de Pago',
                       child: _buildMediosDePagoSection(),
                     ),
+                    SizedBox(height: 20),
+                    _buildSection(
+                      title: 'Información de Pagos',
+                      child: _buildPaymentInfoSection(),
+                    ),
                     SizedBox(height: 30),
                     Container(
                       decoration: BoxDecoration(
@@ -305,38 +426,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildSection({required String title, required Widget child}) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF333333),
-            ),
-          ),
-          SizedBox(height: 12),
-          child,
-        ],
-      ),
     );
   }
 
@@ -430,8 +519,10 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             Expanded(
               child: _buildModernTextField(
                 controller: _horaController,
-                label: 'Hora*',
+                label: 'Hora',
                 icon: Icons.access_time,
+                readOnly: true,
+                onTap: _selectTime,
               ),
             ),
           ],
@@ -480,11 +571,11 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     return Column(
       children: [
         _buildModernDropdown(
-          value: _localidadSeleccionada,
-          items: _localidades,
-          label: 'Localidad*',
+          value: _zonaSeleccionada,
+          items: _zonas,
+          label: 'Zona de la ciudad*',
           icon: Icons.location_on,
-          onChanged: (val) => setState(() => _localidadSeleccionada = val),
+          onChanged: (val) => setState(() => _zonaSeleccionada = val),
         ),
         SizedBox(height: 16),
         _buildModernDropdown(
@@ -499,7 +590,43 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           controller: _direccionController,
           label: 'Dirección exacta*',
           icon: Icons.map,
+          readOnly: true,
+          onTap: _selectLocation,
         ),
+        if (_ubicacionEvento != null) ...[
+          SizedBox(height: 16),
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: FlutterMap(
+                options: MapOptions(
+                  center: _ubicacionEvento,
+                  zoom: 15.0,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    subdomains: ['a', 'b', 'c'],
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _ubicacionEvento!,
+                        builder: (ctx) => Icon(Icons.location_pin, 
+                            color: Colors.red, size: 40),
+                      )
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         SizedBox(height: 16),
         Row(
           children: [
@@ -515,7 +642,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             Expanded(
               child: _buildModernTextField(
                 controller: _costoController,
-                label: 'Costo',
+                label: 'costo',
                 icon: Icons.attach_money,
                 keyboardType: TextInputType.number,
               ),
@@ -585,13 +712,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           label: 'Disponibilidad de parqueadero',
           icon: Icons.local_parking,
         ),
-        SizedBox(height: 12),
-        _buildModernSwitch(
-          value: _puertaAPuerta,
-          onChanged: (val) => setState(() => _puertaAPuerta = val),
-          label: 'Servicio puerta a puerta',
-          icon: Icons.directions_car,
-        ),
         SizedBox(height: 16),
         _buildModernTextField(
           controller: _contactoController,
@@ -649,10 +769,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     );
   }
 
- Widget _buildMediosDePagoSection() {
-    // Controlador para el campo de otros medios
-    final otrosMediosController = TextEditingController(text: _otrosMedios);
-    
+  Widget _buildMediosDePagoSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -689,32 +806,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             );
           }).toList(),
         ),
-        SizedBox(height: 16),
-        TextFormField(
-          controller: otrosMediosController,
-          onChanged: (value) {
-            setState(() {
-              _otrosMedios = value;
-            });
-          },
-          decoration: InputDecoration(
-            labelText: 'Otros medios (separados por coma)',
-            labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-            floatingLabelStyle: GoogleFonts.poppins(color: Color(0xFF6A11CB)),
-            prefixIcon: Icon(Icons.add_circle_outline, color: Color(0xFF6A11CB)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Color(0xFF6A11CB), width: 1.5),
-            ),
-            filled: true,
-            fillColor: Colors.grey[50],
-          ),
-        ),
-        if (_mediosSeleccionados.isEmpty && _otrosMedios.isEmpty)
+        if (_mediosSeleccionados.isEmpty)
           Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
@@ -725,4 +817,64 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       ],
     );
   }
- }
+
+  Widget _buildPaymentInfoSection() {
+    return Column(
+      children: [
+        if (_mediosSeleccionados.contains('Transferencia bancaria'))
+          _buildModernTextField(
+            controller: _cuentaBancariaController,
+            label: 'Número de cuenta bancaria*',
+            icon: Icons.account_balance,
+            keyboardType: TextInputType.number,
+          ),
+        if (_mediosSeleccionados.contains('Nequi'))
+          _buildModernTextField(
+            controller: _nequiController,
+            label: 'Número de Nequi*',
+            icon: Icons.phone_android,
+            keyboardType: TextInputType.phone,
+          ),
+        if (_mediosSeleccionados.contains('Daviplata'))
+          _buildModernTextField(
+            controller: _daviplataController,
+            label: 'Número de Daviplata*',
+            icon: Icons.phone_android,
+            keyboardType: TextInputType.phone,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSection({required String title, required Widget child}) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF333333),
+            ),
+          ),
+          SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
