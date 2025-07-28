@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:math';
 
 class AgregarEventoScreen extends StatefulWidget {
   final User user;
@@ -35,8 +36,14 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
 
   // Zonas de la ciudad
   final List<String> _zonas = [
-    'Norte', 'Occidente', 'Oriente', 'Sur', 
-    'Noroccidente', 'Nororiente', 'Suroccidente', 'Suroriente'
+    'Norte',
+    'Occidente',
+    'Oriente',
+    'Sur',
+    'Noroccidente',
+    'Nororiente',
+    'Suroccidente',
+    'Suroriente',
   ];
 
   // Medios de pago
@@ -45,12 +52,14 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     'Tarjeta crédito/débito',
     'Transferencia bancaria',
     'Nequi',
-    'Daviplata'
+    'Daviplata',
   ];
   List<String> _mediosSeleccionados = [];
-  
+
+  String? _imagenPredefinida;
   String? _zonaSeleccionada;
   String? _tipoSeleccionado;
+
   bool _accesibilidad = false;
   bool _parqueadero = false;
 
@@ -58,8 +67,42 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   bool _isLoading = false;
   LatLng? _ubicacionEvento;
   final List<String> _tiposEvento = [
-    'Gastrobar', 'Discotecas', 'Cultural', 'Deportivo'
+    'Gastrobar',
+    'Discotecas',
+    'Cultural',
+    'Deportivo',
   ];
+
+  final Map<String, List<String>> _eventoImagenes = {
+    'Gastrobar': [
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+    ],
+    'Discotecas': [
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+    ],
+    'Cultural': [
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+    ],
+    'Deportivo': [
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+      'assets/unnamed.png',
+    ],
+  };
 
   Future<void> _pickImage() async {
     try {
@@ -69,7 +112,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (pickedFile != null) {
         setState(() {
           _imageFile = File(pickedFile.path);
@@ -103,15 +146,13 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Color(0xFF6A11CB),
-            ),
+            colorScheme: ColorScheme.light(primary: Color(0xFF6A11CB)),
           ),
           child: child!,
         );
       },
     );
-    
+
     if (picked != null) {
       setState(() {
         _horaController.text = picked.format(context);
@@ -120,64 +161,63 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   }
 
   Future<void> _selectLocation() async {
-  final TextEditingController _direccionInputController = TextEditingController();
-  String? errorText;
+    final TextEditingController _direccionInputController =
+        TextEditingController();
+    String? errorText;
 
-  await showDialog<String>(
-    context: context,
-    barrierDismissible: false, // Evita cerrar el diálogo tocando fuera
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Escribir dirección'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _direccionInputController,
-                  decoration: InputDecoration(
-                    hintText: 'Ej. Calle 123 #45-67, Bogotá',
-                    errorText: errorText,
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: false, // Evita cerrar el diálogo tocando fuera
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Escribir dirección'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _direccionInputController,
+                    decoration: InputDecoration(
+                      hintText: 'Ej. Calle 123 #45-67, Bogotá',
+                      errorText: errorText,
+                    ),
+                    autofocus: true,
                   ),
-                  autofocus: true,
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final direccion = _direccionInputController.text.trim();
+                    if (direccion.isEmpty) {
+                      setState(() {
+                        errorText = 'Por favor escribe una dirección.';
+                      });
+                    } else {
+                      Navigator.pop(context, direccion);
+                    }
+                  },
+                  child: const Text('Aceptar'),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () {
-                  final direccion = _direccionInputController.text.trim();
-                  if (direccion.isEmpty) {
-                    setState(() {
-                      errorText = 'Por favor escribe una dirección.';
-                    });
-                  } else {
-                    Navigator.pop(context, direccion);
-                  }
-                },
-                child: const Text('Aceptar'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  ).then((result) {
-    if (result != null && result.isNotEmpty) {
-      setState(() {
-        _direccionController.text = result;
-        _ubicacionEvento = null; // Limpiamos coordenadas si ya no se usan
-      });
-    }
-  });
-}
-
-
+            );
+          },
+        );
+      },
+    ).then((result) {
+      if (result != null && result.isNotEmpty) {
+        setState(() {
+          _direccionController.text = result;
+          _ubicacionEvento = null; // Limpiamos coordenadas si ya no se usan
+        });
+      }
+    });
+  }
 
   Future<void> _submitEvent() async {
     if (!_formKey.currentState!.validate()) return;
@@ -186,16 +226,17 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       return;
     }
 
-    if (_mediosSeleccionados.contains('Transferencia bancaria') && 
+    if (_mediosSeleccionados.contains('Transferencia bancaria') &&
         _cuentaBancariaController.text.isEmpty) {
       _showErrorSnackBar('Ingresa la cuenta bancaria');
       return;
     }
-    if (_mediosSeleccionados.contains('Nequi') && _nequiController.text.isEmpty) {
+    if (_mediosSeleccionados.contains('Nequi') &&
+        _nequiController.text.isEmpty) {
       _showErrorSnackBar('Ingresa el número de Nequi');
       return;
     }
-    if (_mediosSeleccionados.contains('Daviplata') && 
+    if (_mediosSeleccionados.contains('Daviplata') &&
         _daviplataController.text.isEmpty) {
       _showErrorSnackBar('Ingresa el número de Daviplata');
       return;
@@ -209,7 +250,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       }
 
       final fechaEvento = DateFormat('yyyy-MM-dd').parse(_fechaController.text);
-      
+
       if (fechaEvento.isBefore(DateTime.now())) {
         throw 'La fecha del evento debe ser futura';
       }
@@ -237,19 +278,27 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
         'fechaTimestamp': Timestamp.fromDate(fechaEvento),
         'tipo': _tipoSeleccionado,
-        'image': imageUrl ?? 'https://via.placeholder.com/150',
+        'image':
+            _imageFile != null
+                ? await _uploadImage(_imageFile!)
+                : _imagenPredefinida ?? 'assets/unnamed.png',
         'creatorId': widget.user.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
         'capacidad': int.tryParse(_capacidadController.text) ?? 0,
         'costo': double.tryParse(_costoController.text) ?? 0.0,
         'direccion': _direccionController.text.trim(),
-        'ubicacion': _ubicacionEvento != null 
-            ? GeoPoint(_ubicacionEvento!.latitude, _ubicacionEvento!.longitude)
-            : null,
+        'ubicacion':
+            _ubicacionEvento != null
+                ? GeoPoint(
+                  _ubicacionEvento!.latitude,
+                  _ubicacionEvento!.longitude,
+                )
+                : null,
         'hora': _horaController.text.trim(),
         'contacto': _contactoController.text.trim(),
-        'etiquetas': _etiquetasController.text.split(',').map((e) => e.trim()).toList(),
+        'etiquetas':
+            _etiquetasController.text.split(',').map((e) => e.trim()).toList(),
         'politicas': _politicasController.text.trim(),
         'accesibilidad': _accesibilidad,
         'parqueadero': _parqueadero,
@@ -263,7 +312,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
 
       _showSuccessSnackBar('Evento enviado para aprobación');
       if (mounted) Navigator.pop(context);
-      
     } on FormatException {
       _showErrorSnackBar('Formato de fecha inválido');
     } catch (e) {
@@ -274,16 +322,13 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     }
   }
 
-
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -294,9 +339,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         content: Text(message),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -344,88 +387,85 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           ),
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            bottom: Radius.circular(20),
-          ),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF6A11CB),
-              ),
-            )
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildImageSection(),
-                    SizedBox(height: 25),
-                    _buildSection(
-                      title: 'Información Básica',
-                      child: _buildBasicInfoSection(),
-                    ),
-                    SizedBox(height: 20),
-                    _buildSection(
-                      title: 'Detalles del Evento',
-                      child: _buildDetailsSection(),
-                    ),
-                    SizedBox(height: 20),
-                    _buildSection(
-                      title: 'Características',
-                      child: _buildFeaturesSection(),
-                    ),
-                    SizedBox(height: 20),
-                    _buildSection(
-                      title: 'Medios de Pago',
-                      child: _buildMediosDePagoSection(),
-                    ),
-                    SizedBox(height: 20),
-                    _buildSection(
-                      title: 'Información de Pagos',
-                      child: _buildPaymentInfoSection(),
-                    ),
-                    SizedBox(height: 30),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: Offset(0, 5),
-                          )
-                        ],
+      body:
+          _isLoading
+              ? Center(
+                child: CircularProgressIndicator(color: Color(0xFF6A11CB)),
+              )
+              : SingleChildScrollView(
+                padding: EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      _buildImageSection(),
+                      SizedBox(height: 25),
+                      _buildSection(
+                        title: 'Información Básica',
+                        child: _buildBasicInfoSection(),
                       ),
-                      child: ElevatedButton(
-                        onPressed: _submitEvent,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      SizedBox(height: 20),
+                      _buildSection(
+                        title: 'Detalles del Evento',
+                        child: _buildDetailsSection(),
+                      ),
+                      SizedBox(height: 20),
+                      _buildSection(
+                        title: 'Características',
+                        child: _buildFeaturesSection(),
+                      ),
+                      SizedBox(height: 20),
+                      _buildSection(
+                        title: 'Medios de Pago',
+                        child: _buildMediosDePagoSection(),
+                      ),
+                      SizedBox(height: 20),
+                      _buildSection(
+                        title: 'Información de Pagos',
+                        child: _buildPaymentInfoSection(),
+                      ),
+                      SizedBox(height: 30),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _submitEvent,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'PUBLICAR EVENTO',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          'PUBLICAR EVENTO',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
     );
   }
 
@@ -448,32 +488,33 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
               color: Colors.black.withOpacity(0.1),
               blurRadius: 8,
               offset: Offset(0, 4),
-            )
+            ),
           ],
         ),
-        child: _imageFile != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.file(_imageFile!, fit: BoxFit.cover),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate,
-                    size: 50,
-                    color: Colors.grey[600],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Agregar imagen principal',
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
+        child:
+            _imageFile != null
+                ? ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                )
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate,
+                      size: 50,
+                      color: Colors.grey[600],
                     ),
-                  ),
-                ],
-              ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Agregar imagen principal',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
       ),
     );
   }
@@ -510,7 +551,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                     lastDate: DateTime(DateTime.now().year + 2),
                   );
                   if (picked != null) {
-                    _fechaController.text = DateFormat('yyyy-MM-dd').format(picked);
+                    _fechaController.text = DateFormat(
+                      'yyyy-MM-dd',
+                    ).format(picked);
                   }
                 },
               ),
@@ -604,22 +647,24 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: FlutterMap(
-                options: MapOptions(
-                  center: _ubicacionEvento,
-                  zoom: 15.0,
-                ),
+                options: MapOptions(center: _ubicacionEvento, zoom: 15.0),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c'],
                   ),
                   MarkerLayer(
                     markers: [
                       Marker(
                         point: _ubicacionEvento!,
-                        builder: (ctx) => Icon(Icons.location_pin, 
-                            color: Colors.red, size: 40),
-                      )
+                        builder:
+                            (ctx) => Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                      ),
                     ],
                   ),
                 ],
@@ -683,17 +728,40 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           isDense: true,
           isExpanded: true,
           style: GoogleFonts.poppins(color: Colors.black87),
-          items: items.map((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            );
-          }).toList(),
-          onChanged: onChanged,
+          items:
+              items.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() {
+                _tipoSeleccionado = newValue;
+                // Asignar imagen aleatoria cuando se selecciona un tipo
+                _asignarImagenAleatoria(newValue);
+              });
+            }
+            onChanged(newValue);
+          },
           hint: Text('Selecciona', style: GoogleFonts.poppins()),
         ),
       ),
     );
+  }
+
+  // Agrega este método para asignar una imagen aleatoria
+  void _asignarImagenAleatoria(String tipoEvento) {
+    final random = Random();
+    final imagenes = _eventoImagenes[tipoEvento]!;
+    final imagenAleatoria = imagenes[random.nextInt(imagenes.length)];
+
+    setState(() {
+      // Guarda solo la ruta para usarla luego en Image.asset()
+      _imagenPredefinida = imagenAleatoria;
+      _imageFile = null; // Resetea la imagen personalizada si había una
+    });
   }
 
   Widget _buildFeaturesSection() {
@@ -752,12 +820,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         children: [
           Icon(icon, color: Color(0xFF6A11CB)),
           SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(),
-            ),
-          ),
+          Expanded(child: Text(label, style: GoogleFonts.poppins())),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -781,30 +844,31 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _mediosDePagoDisponibles.map((medio) {
-            final isSelected = _mediosSeleccionados.contains(medio);
-            return ChoiceChip(
-              label: Text(medio),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _mediosSeleccionados.add(medio);
-                  } else {
-                    _mediosSeleccionados.remove(medio);
-                  }
-                });
-              },
-              labelStyle: GoogleFonts.poppins(
-                color: isSelected ? Colors.white : Colors.black87,
-              ),
-              selectedColor: Color(0xFF6A11CB),
-              backgroundColor: Colors.grey[200],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            );
-          }).toList(),
+          children:
+              _mediosDePagoDisponibles.map((medio) {
+                final isSelected = _mediosSeleccionados.contains(medio);
+                return ChoiceChip(
+                  label: Text(medio),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _mediosSeleccionados.add(medio);
+                      } else {
+                        _mediosSeleccionados.remove(medio);
+                      }
+                    });
+                  },
+                  labelStyle: GoogleFonts.poppins(
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                  selectedColor: Color(0xFF6A11CB),
+                  backgroundColor: Colors.grey[200],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                );
+              }).toList(),
         ),
         if (_mediosSeleccionados.isEmpty)
           Padding(
@@ -857,7 +921,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
