@@ -17,9 +17,9 @@ class LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool rememberMe = false;
-  bool passwordVisible = false; // Controla la visibilidad de la contraseña
+  bool passwordVisible = false;
 
-  // Método para iniciar sesión con correo y contraseña
+  // Función de login con email
   Future<void> _signInWithEmail() async {
     try {
       final email = emailController.text.trim();
@@ -37,14 +37,14 @@ class LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      // Verificar si el usuario existe en Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(userCredential.user!.uid)
-          .get();
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(userCredential.user!.uid)
+              .get();
 
       if (!userDoc.exists) {
-        _showEmailAccountAlert(); // Aquí llamamos al método
+        _showEmailAccountAlert();
       } else {
         Navigator.pushReplacement(
           context,
@@ -55,47 +55,45 @@ class LoginScreenState extends State<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
-        _showEmailAccountAlert(); // Mostrar alerta si el usuario no existe
+        _showEmailAccountAlert();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al iniciar sesión: ${e.message}')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al iniciar sesión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al iniciar sesión: $e')));
     }
   }
 
+  // Función de login con Google
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        return; // El usuario canceló el inicio de sesión
-      }
+      if (googleUser == null) return;
 
-      // Obtener la autenticación de Google
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Iniciar sesión con las credenciales de Google
-      UserCredential userCredential = await _auth.signInWithCredential(credential);
+      UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
 
-      // Verificar si el usuario ya existe en Firestore usando el UID de Firebase Auth
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(userCredential.user!.uid) // Usamos el UID de Firebase Auth
-          .get();
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance
+              .collection('usuarios')
+              .doc(userCredential.user!.uid)
+              .get();
 
       if (!userDoc.exists) {
-        // Si no existe, mostrar la alerta y redirigir al registro
         _showGoogleAccountAlert();
       } else {
-        // Si el usuario ya existe en Firestore, redirigir a la pantalla de inicio
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -110,65 +108,247 @@ class LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Alerta si el usuario no existe en la base de datos (para Google)
-  void _showGoogleAccountAlert() {
-    showDialog(
+  // 🔐 Recuperar contraseña
+  void _showForgotPasswordDialog() {
+    final TextEditingController emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
       builder: (context) {
-        return AlertDialog(
-          title: Text('¡Cuenta no encontrada!'),
-          content: Text('No hay una cuenta creada con esta cuenta de Google. Por favor, regístrate.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Cierra el diálogo
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RegisterScreen()), // Redirige a la pantalla de registro
-                );
-              },
-              child: Text('Registrarse'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Solo cierra el diálogo
-              },
-              child: Text('Cancelar'),
-            ),
-          ],
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 30,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.lock_reset_rounded,
+                      size: 50,
+                      color: Colors.deepPurple,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Recuperar contraseña',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'Escribe tu correo y te enviaremos un enlace para restablecerla.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El correo es obligatorio';
+                        }
+                        final emailRegex = RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        );
+                        if (!emailRegex.hasMatch(value.trim())) {
+                          return 'Correo inválido';
+                        }
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(Icons.email_outlined),
+                        hintText: 'Correo electrónico',
+                        filled: true,
+                        fillColor: Color(0xFFF3F4F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 25),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              'Cancelar',
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed:
+                                isLoading
+                                    ? null
+                                    : () async {
+                                      if (formKey.currentState!.validate()) {
+                                        setModalState(() => isLoading = true);
+
+                                        final email =
+                                            emailController.text.trim();
+
+                                        // 🔍 Verificar si el correo existe en Firebase Auth
+                                        try {
+                                          final methods = await FirebaseAuth
+                                              .instance
+                                              .fetchSignInMethodsForEmail(
+                                                email,
+                                              );
+
+                                          if (methods.isEmpty) {
+                                            setModalState(
+                                              () => isLoading = false,
+                                            );
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Ese correo no está registrado en la app',
+                                                ),
+                                              ),
+                                            );
+                                          } else {
+                                            await FirebaseAuth.instance
+                                                .sendPasswordResetEmail(
+                                                  email: email,
+                                                );
+                                            Navigator.pop(context);
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Te enviamos un correo para recuperar tu contraseña',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          setModalState(
+                                            () => isLoading = false,
+                                          );
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error: ${e.toString()}',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child:
+                                isLoading
+                                    ? SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                    : Text('Enviar'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  // Alerta si el usuario no existe en la base de datos (para email)
+  // Alertas
+  void _showGoogleAccountAlert() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('¡Cuenta no encontrada!'),
+            content: Text(
+              'No hay una cuenta creada con esta cuenta de Google.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegisterScreen()),
+                  );
+                },
+                child: Text('Registrarse'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+            ],
+          ),
+    );
+  }
+
   void _showEmailAccountAlert() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('¡Cuenta no encontrada!'),
-          content: Text('No hay una cuenta creada con este correo electrónico. Por favor, regístrate.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Cierra el diálogo
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RegisterScreen()), // Redirige a la pantalla de registro
-                );
-              },
-              child: Text('Registrarse'),
+      builder:
+          (context) => AlertDialog(
+            title: Text('¡Cuenta no encontrada!'),
+            content: Text(
+              'No hay una cuenta creada con este correo electrónico.',
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Solo cierra el diálogo
-              },
-              child: Text('Cancelar'),
-            ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegisterScreen()),
+                  );
+                },
+                child: Text('Registrarse'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+            ],
+          ),
     );
   }
 
@@ -176,132 +356,225 @@ class LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset('assets/ff.png', height: 100),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Iniciar Sesión',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      TextField(
-                        controller: emailController,
-                        decoration: InputDecoration(
-                          labelText: 'Ingrese su correo electrónico',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: !passwordVisible, // Aquí controlamos la visibilidad de la contraseña
-                        decoration: InputDecoration(
-                          labelText: 'Contraseña',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              passwordVisible ? Icons.visibility : Icons.visibility_off,
-                              color: Colors.black,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                passwordVisible = !passwordVisible; // Cambiamos la visibilidad de la contraseña
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Recordarme'),
-                          Switch(
-                            value: rememberMe,
-                            onChanged: (bool value) {
-                              setState(() {
-                                rememberMe = value;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _signInWithEmail, // Llama al nuevo método para login con correo
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 39, 48, 176),
-                          foregroundColor: const Color.fromARGB(255, 255, 255, 255),
-                          padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                        child: const Text('INGRESAR', style: TextStyle(fontSize: 18)),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text('También puedes iniciar sesión con ...'),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.facebook, size: 40, color: Colors.blue),
-                            onPressed: () {},
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.apple, size: 40, color: Colors.black),
-                            onPressed: () {},
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.g_mobiledata, size: 40, color: Colors.red),
-                            onPressed: _signInWithGoogle, // Llama al método para login con Google
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => RegisterScreen()),
-                          );
-                        },
-                        child: const Text(
-                          '¿No tienes cuenta? Regístrate',
+        builder:
+            (context, constraints) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset('assets/ff.png', height: 100),
+                        SizedBox(height: 20),
+                        Text(
+                          'Iniciar Sesión',
                           style: TextStyle(
-                            color: Colors.blue,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
                           ),
                         ),
-                      ),
-                      SizedBox(height: constraints.maxHeight * 0.1), // Espacio adicional para asegurar centrado
-                    ],
+                        SizedBox(height: 30),
+                        TextField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Correo electrónico',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 15),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: !passwordVisible,
+                          decoration: InputDecoration(
+                            labelText: 'Contraseña',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                passwordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  passwordVisible = !passwordVisible;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+
+                        // 🔐 Botón de recuperar contraseña
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _showForgotPasswordDialog,
+                            child: Text(
+                              '¿Olvidaste tu contraseña?',
+                              style: TextStyle(color: Colors.blue),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Recordarme'),
+                            Switch(
+                              value: rememberMe,
+                              onChanged: (bool value) {
+                                setState(() {
+                                  rememberMe = value;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10),
+
+                        // 🔧 ===== BOTONES TEMPORALES DE PRUEBA DE LOGIN ===== 🔧
+                        // 🔴 ELIMINA ESTO DESPUÉS DE LAS PRUEBAS 🔴
+                        Column(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text = 'cristian@gmail.com';
+                                  passwordController.text = 'Fiestafinder123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login EMPRESARIO'),
+                            ),
+                            SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text = 'admin@admin.com';
+                                  passwordController.text = 'Fiestafinder123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login ADMINISTRADOR'),
+                            ),
+                            SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text =
+                                      'jersonusuario@gmail.com';
+                                  passwordController.text = 'Jersonusuario123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login USUARIO'),
+                            ),
+                          ],
+                        ),
+
+                        // 🔧 ===== FIN BOTONES TEMPORALES DE PRUEBA ===== 🔧
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _signInWithEmail,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color.fromARGB(255, 39, 48, 176),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 80,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                          child: Text(
+                            'INGRESAR',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        Text('También puedes iniciar sesión con ...'),
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.facebook,
+                                size: 40,
+                                color: Colors.blue,
+                              ),
+                              onPressed: () {},
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.apple,
+                                size: 40,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {},
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.g_mobiledata,
+                                size: 40,
+                                color: Colors.red,
+                              ),
+                              onPressed: _signInWithGoogle,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 20),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            '¿No tienes cuenta? Regístrate',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: constraints.maxHeight * 0.1),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          );
-        },
       ),
     );
   }
