@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+/*import 'package:firebase_storage/firebase_storage.dart';*/
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math';
+import 'package:cloudinary_public/cloudinary_public.dart';
 
 class AgregarEventoScreen extends StatefulWidget {
   final User user;
@@ -34,6 +35,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _nequiController = TextEditingController();
   final _daviplataController = TextEditingController();
 
+  final String _cloudinaryCloudName = 'di6pgbrlu';
+  final String _cloudinaryUploadPreset = 'fiesta_finder_preset';
+
   // Zonas de la ciudad
   final List<String> _zonas = [
     'Norte',
@@ -54,7 +58,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     'Nequi',
     'Daviplata',
   ];
-  List<String> _mediosSeleccionados = [];
+  final List<String> _mediosSeleccionados = [];
 
   String? _imagenPredefinida;
   String? _zonaSeleccionada;
@@ -123,16 +127,34 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     }
   }
 
+  // Añade estas variables para tus credenciales de Cloudinary
+  // Te explico esto en el paso 5
+
+  // ... tu código existente
   Future<String?> _uploadImage(File image) async {
     try {
       setState(() => _isLoading = true);
-      final fileName = 'event_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance.ref('event_images/$fileName');
-      await ref.putFile(image);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error uploading image: $e');
-      _showErrorSnackBar('Error al subir la imagen');
+
+      // Configura la instancia de Cloudinary con tu Cloud Name y Upload Preset
+      final cloudinary = CloudinaryPublic(
+        _cloudinaryCloudName,
+        _cloudinaryUploadPreset,
+        cache: false,
+      );
+
+      // Sube la imagen a Cloudinary
+      final response = await cloudinary.uploadFile(
+        CloudinaryFile.fromFile(
+          image.path,
+          resourceType: CloudinaryResourceType.Image,
+        ),
+      );
+
+      // Devuelve la URL segura de la imagen
+      return response.secureUrl;
+    } on CloudinaryException catch (e) {
+      debugPrint('Error al subir imagen a Cloudinary: ${e.message}');
+      _showErrorSnackBar('Error al subir la imagen: ${e.message}');
       return null;
     } finally {
       setState(() => _isLoading = false);
@@ -278,10 +300,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
         'fechaTimestamp': Timestamp.fromDate(fechaEvento),
         'tipo': _tipoSeleccionado,
-        'image':
-            _imageFile != null
-                ? await _uploadImage(_imageFile!)
-                : _imagenPredefinida ?? 'assets/unnamed.png',
+        /*ojo*/ 'image': imageUrl ?? _imagenPredefinida ?? 'assets/unnamed.png',
         'creatorId': widget.user.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
@@ -825,7 +844,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             value: value,
             onChanged: onChanged,
             activeColor: Color(0xFF6A11CB),
-            activeTrackColor: Color(0xFF6A11CB).withOpacity(0.3),
+            /*ojo*/ activeTrackColor: Color(
+              0xFF6A11CB,
+            ).withAlpha(76), // 0.3 * 255 = 76.5
           ),
         ],
       ),

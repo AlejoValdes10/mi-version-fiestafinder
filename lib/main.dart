@@ -18,16 +18,19 @@ class FiestaFinderApp extends StatelessWidget {
   const FiestaFinderApp({super.key});
 
   @override
-Widget build(BuildContext context) {
-  return MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: const SplashScreen(),
-    routes: {
-      '/welcome': (context) => const WelcomeScreen(),
-      '/login': (context) => const login.LoginScreen(),
-      '/register': (context) => const register.RegisterScreen(),
-      '/home': (context) => HomeScreen(FirebaseAuth.instance.currentUser!), // Esta es la pantalla principal
-    },
-  );
-}
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const SplashScreen(),
+      routes: {
+        '/welcome': (context) => const WelcomeScreen(),
+        '/login': (context) => const login.LoginScreen(),
+        '/register': (context) => const register.RegisterScreen(),
+        '/home':
+            (context) => HomeScreen(
+              FirebaseAuth.instance.currentUser!,
+            ), // Esta es la pantalla principal
+      },
+    );
+  }
 }

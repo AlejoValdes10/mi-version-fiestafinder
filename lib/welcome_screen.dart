@@ -8,19 +8,19 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Fondo GIF
-          Positioned.fill(
-            child: Image.asset(
-              'assets/splash2.gif', // Reemplaza con el nombre de tu GIF
-              fit: BoxFit.cover, // Cubre toda la pantalla
-            ),
-          ),
+  // Fondo color sólido
+  Positioned.fill(
+    child: Container(
+      color: const Color.fromARGB(255, 255, 255, 255),  // Aquí puedes elegir el color que prefieras
+    ),
+  ),
+
           // Contenido principal
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/ff2.png', height: 150),
+                Image.asset('assets/ff.png', height: 150),
                 const SizedBox(height: 20),
                 Text(
                   'FIESTA FINDER',
@@ -41,8 +41,8 @@ class WelcomeScreen extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () => Navigator.pushNamed(context, '/login'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.8),
-                    foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+                    backgroundColor: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.8),
+                    foregroundColor: const Color.fromARGB(255, 255, 255, 255),
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     shape: RoundedRectangleBorder(
@@ -55,8 +55,8 @@ class WelcomeScreen extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () => Navigator.pushNamed(context, '/register'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.9),
-                    foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+                    backgroundColor: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.9),
+                    foregroundColor: const Color.fromARGB(255, 255, 255, 255),
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     shape: RoundedRectangleBorder(
