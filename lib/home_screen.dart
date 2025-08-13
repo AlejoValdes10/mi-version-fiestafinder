@@ -322,6 +322,36 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   // Mostrar panel de administración
+  // Agrega este método en tu clase HomeScreenState
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'approved':
+        return 'Aprobado';
+      case 'rejected':
+        return 'Rechazado';
+      case 'pending':
+        return 'Pendiente';
+      case 'all':
+        return 'Todos';
+      default:
+        return status;
+    }
+  }
+
+  Widget _getStatusIcon(String status) {
+    switch (status) {
+      case 'approved':
+        return Icon(Icons.check_circle, color: Colors.green, size: 40);
+      case 'rejected':
+        return Icon(Icons.cancel, color: Colors.red, size: 40);
+      case 'pending':
+        return Icon(Icons.pending, color: Colors.orange, size: 40);
+      default:
+        return Icon(Icons.help_outline, color: Colors.grey, size: 40);
+    }
+  }
+
+  // Mostrar panel de administración
   void _showAdminPanel() {
     showDialog(
       context: context,
@@ -331,14 +361,16 @@ class HomeScreenState extends State<HomeScreen> {
             content: SizedBox(
               width: double.maxFinite,
               child: DefaultTabController(
-                length: 3, // Pestañas: Pendientes, Aprobados, Todos
+                length: 4,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const TabBar(
+                      isScrollable: true,
                       tabs: [
                         Tab(text: "Pendientes"),
                         Tab(text: "Aprobados"),
+                        Tab(text: "Rechazados"),
                         Tab(text: "Todos"),
                       ],
                     ),
@@ -346,9 +378,10 @@ class HomeScreenState extends State<HomeScreen> {
                       height: 400,
                       child: TabBarView(
                         children: [
-                          _buildPendingEventsForAdmin(),
-                          _buildApprovedEventsForAdmin(),
-                          _buildAllEventsForAdmin(),
+                          _buildAdminEventList('pending'),
+                          _buildAdminEventList('approved'),
+                          _buildAdminEventList('rejected'),
+                          _buildAdminEventList('all'),
                         ],
                       ),
                     ),
@@ -366,20 +399,39 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAllEventsForAdmin() {
+  // Construir lista de eventos para administrador
+  Widget _buildAdminEventList(String status) {
+    Query query;
+
+    if (status == 'all') {
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .orderBy('fechaTimestamp', descending: true);
+    } else {
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .where('status', isEqualTo: status)
+          .orderBy('fechaTimestamp', descending: true);
+    }
+
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('eventos')
-              .orderBy('fechaTimestamp', descending: true)
-              .snapshots(),
+      stream: query.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(child: Text("No hay eventos registrados"));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.event_available, size: 50, color: Colors.grey),
+                const SizedBox(height: 10),
+                Text("No hay eventos ${_getStatusText(status)}"),
+              ],
+            ),
+          );
         }
 
         return ListView.builder(
@@ -389,10 +441,41 @@ class HomeScreenState extends State<HomeScreen> {
             final data = doc.data() as Map<String, dynamic>;
 
             return Card(
-              margin: EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
               child: ListTile(
-                leading: _getStatusIcon(data['status']),
-                title: Text(data['eventName']),
+                // Mostrar imagen del evento en lugar del icono de estado
+                leading:
+                    data['image'] != null && data['image'].isNotEmpty
+                        ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            data['image'],
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder:
+                                (_, __, ___) => Icon(Icons.event, size: 50),
+                          ),
+                        )
+                        : Icon(Icons.event, size: 50),
+                title: Row(
+                  children: [
+                    // Icono de estado al lado del nombre
+                    if (data['status'] == 'approved')
+                      Icon(Icons.check_circle, color: Colors.green, size: 24),
+                    if (data['status'] == 'rejected')
+                      Icon(Icons.cancel, color: Colors.red, size: 24),
+                    if (data['status'] == 'pending')
+                      Icon(Icons.pending, color: Colors.orange, size: 24),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        data['eventName'] ?? 'Evento sin nombre',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -428,148 +511,24 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildApprovedEventsForAdmin() {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('eventos')
-              .where('status', isEqualTo: 'approved')
-              .orderBy('fechaTimestamp', descending: true)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(child: Text("No hay eventos aprobados"));
-        }
-
-        return ListView.builder(
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-
-            return Card(
-              margin: EdgeInsets.all(8),
-              child: ListTile(
-                leading: Icon(Icons.check_circle, color: Colors.green),
-                title: Text(data['eventName']),
-                subtitle: Text("Fecha: ${_formatDate(data['fechaTimestamp'])}"),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _getStatusIcon(String status) {
-    switch (status) {
-      case 'approved':
-        return Icon(Icons.check_circle, color: Colors.green);
-      case 'rejected':
-        return Icon(Icons.cancel, color: Colors.red);
-      default:
-        return Icon(Icons.pending, color: Colors.orange);
+  // Mantén solo una versión de este método (elimina la duplicada)
+  Future<void> _notifyUser(String userId, String title, String message) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(userId)
+          .collection('notificaciones')
+          .add({
+            'titulo': title,
+            'mensaje': message,
+            'fecha': FieldValue.serverTimestamp(),
+            'leida': false,
+          });
+    } catch (e) {
+      debugPrint("Error enviando notificación: $e");
     }
   }
 
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'approved':
-        return 'Aprobado';
-      case 'rejected':
-        return 'Rechazado';
-      case 'pending':
-        return 'Pendiente';
-      default:
-        return status;
-    }
-  }
-
-  // Construir lista de eventos pendientes para admin
-  Widget _buildPendingEventsForAdmin() {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('eventos')
-              .where('status', isEqualTo: 'pending')
-              .orderBy('createdAt', descending: true)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.event_available, size: 50, color: Colors.grey),
-                SizedBox(height: 10),
-                Text("No hay eventos pendientes"),
-              ],
-            ),
-          );
-        }
-
-        final events = snapshot.data!.docs;
-
-        return ListView.separated(
-          itemCount: events.length,
-          separatorBuilder: (context, index) => Divider(height: 1),
-          itemBuilder: (context, index) {
-            final doc = events[index];
-            final data = doc.data() as Map<String, dynamic>;
-
-            return Card(
-              margin: EdgeInsets.all(8),
-              child: ListTile(
-                contentPadding: EdgeInsets.all(12),
-                leading:
-                    data['image'] != null
-                        ? Image.network(
-                          data['image']!,
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (_, __, ___) => Icon(Icons.event, size: 50),
-                        )
-                        : Icon(Icons.event, size: 50),
-                title: Text(data['eventName'] ?? 'Sin nombre'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Creador: ${data['creatorId']}"),
-                    Text("Fecha: ${data['fecha']}"),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.check, color: Colors.green),
-                      onPressed: () => _approveEvent(doc.id, data['creatorId']),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: Colors.red),
-                      onPressed: () => _rejectEvent(doc.id, data['creatorId']),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // Aprobar evento
   Future<void> _approveEvent(String eventId, String creatorId) async {
     try {
       await FirebaseFirestore.instance
@@ -581,7 +540,6 @@ class HomeScreenState extends State<HomeScreen> {
             'reviewedBy': widget.user.uid,
           });
 
-      // Notificar al creador del evento
       await _notifyUser(
         creatorId,
         "Evento Aprobado",
@@ -589,9 +547,7 @@ class HomeScreenState extends State<HomeScreen> {
       );
 
       _showSuccessFeedback("Evento aprobado");
-
-      // Forzar actualización de la lista
-      _setupEventListeners();
+      if (mounted) setState(() {});
     } catch (e) {
       _showErrorSnackBar("Error al aprobar evento: ${e.toString()}");
     }
@@ -603,28 +559,29 @@ class HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         final controller = TextEditingController();
         return AlertDialog(
-          title: Text("Razón de rechazo"),
+          title: const Text("Razón de rechazo"),
           content: TextField(
             controller: controller,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: "Ingrese la razón del rechazo",
             ),
+            maxLines: 3,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text("Cancelar"),
+              child: const Text("Cancelar"),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, controller.text),
-              child: Text("Confirmar"),
+              child: const Text("Confirmar"),
             ),
           ],
         );
       },
     );
 
-    if (reason != null) {
+    if (reason != null && reason.isNotEmpty) {
       try {
         await FirebaseFirestore.instance
             .collection('eventos')
@@ -650,22 +607,6 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   // Notificar al usuario en la app
-  Future<void> _notifyUser(String userId, String title, String message) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(userId)
-          .collection('notificaciones')
-          .add({
-            'titulo': title,
-            'mensaje': message,
-            'fecha': FieldValue.serverTimestamp(),
-            'leida': false,
-          });
-    } catch (e) {
-      debugPrint("Error enviando notificación: $e");
-    }
-  }
 
   // Mostrar diálogo de mis eventos
   Future<void> _showMyEventsDialog() async {
@@ -909,14 +850,16 @@ class HomeScreenState extends State<HomeScreen> {
                 backgroundColor: Colors.white,
                 toolbarHeight: kToolbarHeight,
                 actions: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.calendar_today,
-                      size: 28,
-                      color: Colors.black,
+                  // Mostrar icono de calendario solo si NO es administrador
+                  if (tipoPersona != "Administrador")
+                    IconButton(
+                      icon: const Icon(
+                        Icons.calendar_today,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: _showMyEventsDialog,
                     ),
-                    onPressed: _showMyEventsDialog,
-                  ),
                   if (tipoPersona == "Empresario")
                     IconButton(
                       icon: const Icon(
