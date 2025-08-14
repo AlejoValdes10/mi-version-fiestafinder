@@ -35,6 +35,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _nequiController = TextEditingController();
   final _daviplataController = TextEditingController();
 
+// Credenciales de Cloudinary 
   final String _cloudinaryCloudName = 'di6pgbrlu';
   final String _cloudinaryUploadPreset = 'fiesta_finder_preset';
 
@@ -100,11 +101,11 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       'assets/unnamed.png',
     ],
     'Deportivo': [
-      'assets/unnamed.png',
-      'assets/unnamed.png',
-      'assets/unnamed.png',
-      'assets/unnamed.png',
-      'assets/unnamed.png',
+      'assets/depor.png',
+      'assets/depor.png',
+      'assets/depor.png',
+      'assets/depor.png',
+      'assets/depor.png',
     ],
   };
 
@@ -242,6 +243,11 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   }
 
   Future<void> _submitEvent() async {
+
+    if (_zonaSeleccionada == null || _zonaSeleccionada!.isEmpty) {
+  _showErrorSnackBar('Por favor selecciona una zona de la ciudad');
+  return;
+}
     if (!_formKey.currentState!.validate()) return;
     if (_mediosSeleccionados.isEmpty) {
       _showErrorSnackBar('Selecciona al menos un medio de pago');
@@ -300,7 +306,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
         'fechaTimestamp': Timestamp.fromDate(fechaEvento),
         'tipo': _tipoSeleccionado,
-        /*ojo*/ 'image': imageUrl ?? _imagenPredefinida ?? 'assets/unnamed.png',
+        /*ojo*/ 'image': imageUrl ?? _imagenPredefinida ?? 'assets/depor.png',
         'creatorId': widget.user.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
@@ -464,21 +470,22 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                         child: ElevatedButton(
                           onPressed: _submitEvent,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
+                            backgroundColor: const Color.fromARGB(0, 209, 28, 28),
+                            shadowColor: const Color.fromARGB(0, 255, 4, 4),
                             padding: EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(
-                            'PUBLICAR EVENTO',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
+                         child: Text(
+                              'PUBLICAR EVENTO',
+                               style: GoogleFonts.poppins(
+                               fontSize: 16,
+                               fontWeight: FontWeight.w600,
+                               letterSpacing: 1.2,
+                               color: Colors.white, // Esta línea añade el color blanco
+                                 ),
+                                 )
                         ),
                       ),
                     ],
@@ -633,20 +640,27 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     return Column(
       children: [
         _buildModernDropdown(
-          value: _zonaSeleccionada,
-          items: _zonas,
-          label: 'Zona de la ciudad*',
-          icon: Icons.location_on,
-          onChanged: (val) => setState(() => _zonaSeleccionada = val),
+           value: _zonaSeleccionada,
+           items: _zonas,
+           label: 'Zona de la ciudad*',
+           icon: Icons.location_on,
+           onChanged: (val) => setState(() => _zonaSeleccionada = val),
         ),
         SizedBox(height: 16),
         _buildModernDropdown(
-          value: _tipoSeleccionado,
-          items: _tiposEvento,
-          label: 'Tipo de evento*',
-          icon: Icons.category,
-          onChanged: (val) => setState(() => _tipoSeleccionado = val),
-        ),
+            value: _tipoSeleccionado,
+            items: _tiposEvento,
+            label: 'Tipo de evento*',
+            icon: Icons.category,
+            onChanged: (val) {
+           if (val != null) {
+           setState(() {
+          _tipoSeleccionado = val;
+          _asignarImagenAleatoria(val);
+      });
+    }
+  },
+),
         SizedBox(height: 16),
         _buildModernTextField(
           controller: _direccionController,
@@ -717,71 +731,64 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     );
   }
 
-  Widget _buildModernDropdown({
-    required String? value,
-    required List<String> items,
-    required String label,
-    required IconData icon,
-    required Function(String?) onChanged,
-  }) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-        floatingLabelStyle: GoogleFonts.poppins(color: Color(0xFF6A11CB)),
-        prefixIcon: Icon(icon, color: Color(0xFF6A11CB)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Color(0xFF6A11CB), width: 1.5),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
+Widget _buildModernDropdown({
+  required String? value,
+  required List<String> items,
+  required String label,
+  required IconData icon,
+  required Function(String?) onChanged,
+}) {
+  return InputDecorator(
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+      floatingLabelStyle: GoogleFonts.poppins(color: Color(0xFF6A11CB)),
+      prefixIcon: Icon(icon, color: Color(0xFF6A11CB)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[300]!),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isDense: true,
-          isExpanded: true,
-          style: GoogleFonts.poppins(color: Colors.black87),
-          items:
-              items.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-          onChanged: (String? newValue) {
-            if (newValue != null) {
-              setState(() {
-                _tipoSeleccionado = newValue;
-                // Asignar imagen aleatoria cuando se selecciona un tipo
-                _asignarImagenAleatoria(newValue);
-              });
-            }
-            onChanged(newValue);
-          },
-          hint: Text('Selecciona', style: GoogleFonts.poppins()),
-        ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Color(0xFF6A11CB), width: 1.5),
       ),
-    );
-  }
+      filled: true,
+      fillColor: Colors.grey[50],
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: value,
+        isDense: true,
+        isExpanded: true,
+        style: GoogleFonts.poppins(color: Colors.black87),
+        items: items.map((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+        onChanged: (String? newValue) {
+          onChanged(newValue);
+        },
+        hint: Text('Selecciona', style: GoogleFonts.poppins()),
+      ),
+    ),
+  );
+}
 
   // Agrega este método para asignar una imagen aleatoria
   void _asignarImagenAleatoria(String tipoEvento) {
+  if (_eventoImagenes.containsKey(tipoEvento)) {
     final random = Random();
     final imagenes = _eventoImagenes[tipoEvento]!;
     final imagenAleatoria = imagenes[random.nextInt(imagenes.length)];
 
     setState(() {
-      // Guarda solo la ruta para usarla luego en Image.asset()
       _imagenPredefinida = imagenAleatoria;
-      _imageFile = null; // Resetea la imagen personalizada si había una
+      _imageFile = null;
     });
   }
+}
 
   Widget _buildFeaturesSection() {
     return Column(
