@@ -187,12 +187,7 @@ class RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(
-        255,
-        255,
-        255,
-        255,
-      ), // <-- Aquí puedes definir el color que prefieras
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -244,21 +239,13 @@ class RegisterScreenState extends State<RegisterScreen> {
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 12),
-                      _buildTextField(
-                        passwordController,
-                        'Contraseña',
-                        Icons.lock,
-                        obscureText: true,
-                      ),
+                      // **Campo de contraseña con ojito**
+                      _buildPasswordField(passwordController),
                       const SizedBox(height: 12),
                       _buildDropdown(
                         'Tipo de persona',
                         personType,
-                        [
-                          'Usuario',
-                          'Empresario',
-                          'Administrador',
-                        ], // Agregar 'Administrador'
+                        ['Usuario', 'Empresario', 'Administrador'],
                         (value) {
                           setState(() {
                             personType = value!;
@@ -282,24 +269,21 @@ class RegisterScreenState extends State<RegisterScreen> {
                         _register,
                         const Color.fromARGB(255, 39, 48, 176),
                       ),
-                      const SizedBox(
-                        height: 20,
-                      ), // Ajustamos la separación aquí
-                      // Aquí comenzamos con el logo de Google
+                      const SizedBox(height: 20),
+                      // Divisor con texto para el logo de Google
                       Column(
                         children: [
                           Row(
                             children: [
-                              // Líneas horizontales más cortas
                               Expanded(
                                 child: Divider(
-                                  color: Colors.black54, // Color de la línea
+                                  color: Colors.black54,
                                   thickness: 1,
-                                  endIndent: 20, // Hace la línea más corta
+                                  endIndent: 20,
                                 ),
                               ),
                               const Text(
-                                'Ó Con Google',
+                                'Ó registrarse con',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -307,15 +291,15 @@ class RegisterScreenState extends State<RegisterScreen> {
                               ),
                               Expanded(
                                 child: Divider(
-                                  color: Colors.black54, // Color de la línea
+                                  color: Colors.black54,
                                   thickness: 1,
-                                  indent: 20, // Hace la línea más corta
+                                  indent: 20,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          _buildGoogleButton(), // El botón de Google sigue aquí
+                          _buildGoogleButton(), // Botón con el logo de Google
                         ],
                       ),
                       const SizedBox(height: 15),
@@ -332,21 +316,84 @@ class RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // **Campo de contraseña con el ojito**
+  Widget _buildPasswordField(TextEditingController controller) {
+  bool obscureText = true;
+
+  return StatefulBuilder(
+    builder: (context, setState) {
+      return TextFormField(
+        controller: controller,
+        obscureText: obscureText,
+        decoration: InputDecoration(
+          prefixIcon: Icon(Icons.lock),
+          hintText: 'Contraseña',
+          filled: true,
+          fillColor: Color(0xFFF3F4F6), // Se mantiene el color de fondo original
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none, // Mantiene el borde sin cambios
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscureText ? Icons.visibility_off : Icons.visibility,
+              color: Colors.grey, // El color del ícono sigue igual (gris)
+            ),
+            onPressed: () {
+              setState(() {
+                obscureText = !obscureText;
+              });
+            },
+          ),
+        ),
+      );
+    },
+  );
+}
+
+
+
+  // **Botón de Google**
   Widget _buildGoogleButton() {
-    return SizedBox(
-      width: 250,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: _registerWithGoogle,
-            icon: Image.asset('assets/google.png', width: 40, height: 40),
-            tooltip: 'Registrarse con Google',
+  return GestureDetector(
+    onTap: () {
+      // Tu lógica para iniciar sesión con Google
+    },
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),  // Espaciado horizontal añadido
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 5,
+            offset: Offset(0, 2),
+            color: Colors.black.withOpacity(0.1),
           ),
         ],
       ),
-    );
-  }
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/google.png', // Asegúrate de que el archivo esté en assets
+            width: 28,
+            height: 28,
+          ),
+          const SizedBox(width: 12), // Mayor espacio entre el logo y el texto
+          Text(
+            'Continuar con Google',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   Widget _buildLoginText() {
     return Row(
@@ -478,3 +525,4 @@ class RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

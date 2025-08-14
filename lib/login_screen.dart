@@ -207,46 +207,29 @@ class LoginScreenState extends State<LoginScreen> {
                                         final email =
                                             emailController.text.trim();
 
-                                        // 🔍 Verificar si el correo existe en Firebase Auth
                                         try {
-                                          final methods = await FirebaseAuth
-                                              .instance
-                                              .fetchSignInMethodsForEmail(
-                                                email,
+                                          // Intentar enviar el correo de recuperación directamente
+                                          await FirebaseAuth.instance
+                                              .sendPasswordResetEmail(
+                                                email: email,
                                               );
 
-                                          if (methods.isEmpty) {
-                                            setModalState(
-                                              () => isLoading = false,
-                                            );
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Ese correo no está registrado en la app',
-                                                ),
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Te enviamos un correo para recuperar tu contraseña',
                                               ),
-                                            );
-                                          } else {
-                                            await FirebaseAuth.instance
-                                                .sendPasswordResetEmail(
-                                                  email: email,
-                                                );
-                                            Navigator.pop(context);
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Te enviamos un correo para recuperar tu contraseña',
-                                                ),
-                                              ),
-                                            );
-                                          }
+                                            ),
+                                          );
                                         } catch (e) {
                                           setModalState(
                                             () => isLoading = false,
+                                          );
+                                          print(
+                                            'Error al recuperar la contraseña: $e',
                                           );
                                           ScaffoldMessenger.of(
                                             context,
@@ -355,7 +338,12 @@ class LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255), // <-- Aquí puedes definir el color que prefieras
+      backgroundColor: const Color.fromARGB(
+        255,
+        255,
+        255,
+        255,
+      ), // <-- Aquí puedes definir el color que prefieras
       body: LayoutBuilder(
         builder:
             (context, constraints) => SingleChildScrollView(
@@ -524,32 +512,43 @@ class LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.facebook,
-                                size: 40,
-                                color: Colors.blue,
-                              ),
-                              onPressed: () {},
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.apple,
-                                size: 40,
-                                color: Colors.black,
-                              ),
-                              onPressed: () {},
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.g_mobiledata,
-                                size: 40,
-                                color: Colors.red,
-                              ),
+                            ElevatedButton(
                               onPressed: _signInWithGoogle,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white, // Fondo blanco
+                                foregroundColor:
+                                    Colors.black, // Color del texto
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 24,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 5, // Sombra sutil
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/google.png', // Asegúrate de que el archivo esté en assets
+                                    width: 28,
+                                    height: 28,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Continuar con Google',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
+
                         SizedBox(height: 20),
                         GestureDetector(
                           onTap: () {
