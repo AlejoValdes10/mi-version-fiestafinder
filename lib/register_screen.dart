@@ -283,7 +283,7 @@ class RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                               const Text(
-                                'Ó registrarse con',
+                                'Ó registrate con',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -318,82 +318,81 @@ class RegisterScreenState extends State<RegisterScreen> {
 
   // **Campo de contraseña con el ojito**
   Widget _buildPasswordField(TextEditingController controller) {
-  bool obscureText = true;
+    bool obscureText = true;
 
-  return StatefulBuilder(
-    builder: (context, setState) {
-      return TextFormField(
-        controller: controller,
-        obscureText: obscureText,
-        decoration: InputDecoration(
-          prefixIcon: Icon(Icons.lock),
-          hintText: 'Contraseña',
-          filled: true,
-          fillColor: Color(0xFFF3F4F6), // Se mantiene el color de fondo original
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none, // Mantiene el borde sin cambios
-          ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              obscureText ? Icons.visibility_off : Icons.visibility,
-              color: Colors.grey, // El color del ícono sigue igual (gris)
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return TextFormField(
+          controller: controller,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.lock),
+            hintText: 'Contraseña',
+            filled: true,
+            fillColor: Color(
+              0xFFF3F4F6,
+            ), // Se mantiene el color de fondo original
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none, // Mantiene el borde sin cambios
             ),
-            onPressed: () {
-              setState(() {
-                obscureText = !obscureText;
-              });
-            },
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscureText ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey, // El color del ícono sigue igual (gris)
+              ),
+              onPressed: () {
+                setState(() {
+                  obscureText = !obscureText;
+                });
+              },
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
-
-
+        );
+      },
+    );
+  }
 
   // **Botón de Google**
   Widget _buildGoogleButton() {
-  return GestureDetector(
-    onTap: () {
-      // Tu lógica para iniciar sesión con Google
-    },
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),  // Espaciado horizontal añadido
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 5,
-            offset: Offset(0, 2),
-            color: Colors.black.withOpacity(0.1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            'assets/google.png', // Asegúrate de que el archivo esté en assets
-            width: 28,
-            height: 28,
-          ),
-          const SizedBox(width: 12), // Mayor espacio entre el logo y el texto
-          Text(
-            'Continuar con Google',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: () {
+        // Tu lógica para iniciar sesión con Google
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 10,
+          horizontal: 15,
+        ), // Espaciado horizontal añadido
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 5,
+              offset: Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/google.png', // Asegúrate de que el archivo esté en assets
+              width: 28,
+              height: 28,
+            ),
+            const SizedBox(width: 12), // Mayor espacio entre el logo y el texto
+            Text(
+              'Continuar con Google',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildLoginText() {
     return Row(
@@ -525,4 +524,3 @@ class RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-

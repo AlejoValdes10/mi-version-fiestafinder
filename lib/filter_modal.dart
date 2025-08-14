@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:ui';
+
 class FilterModal {
   static void show({
     required BuildContext context,
@@ -13,16 +14,27 @@ class FilterModal {
     String tempDate = currentDate;
     String tempType = currentType;
 
-    final localidades = ["Todos", "Centro", "Norte", "Sur"];
-    final fechas = [
-      "Todas",
-      "2025-03-01",
-      "2025-03-05",
-      "2025-03-10",
-      "2025-03-15",
-      "2025-03-20",
+    final localidades = [
+      'Todos',
+      'Norte',
+      'Occidente',
+      'Oriente',
+      'Sur',
+      'Noroccidente',
+      'Nororiente',
+      'Suroccidente',
+      'Suroriente',
     ];
-    final tipos = ["Todos", "Entretenimiento", "Parejas", "Amigos"];
+
+    final entrada = ["Todos", "De pago", "Gratis"];
+
+    final tipos = [
+      "Todos",
+      " Gastrobar",
+      "Discotecas",
+      "Cultural",
+      "Deportivo",
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -40,7 +52,11 @@ class FilterModal {
                   borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                 ),
                 padding: EdgeInsets.fromLTRB(
-                    25, 30, 25, MediaQuery.of(context).viewInsets.bottom + 30),
+                  25,
+                  30,
+                  25,
+                  MediaQuery.of(context).viewInsets.bottom + 30,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -79,8 +95,8 @@ class FilterModal {
 
                     // Filtro de Fecha con scroll horizontal
                     _buildModernFilterSection(
-                      title: "Fecha",
-                      options: fechas,
+                      title: "Tipo de entrada",
+                      options: entrada,
                       currentSelection: tempDate,
                       onSelect: (value) {
                         setModalState(() {
