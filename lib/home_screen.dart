@@ -624,34 +624,35 @@ class HomeScreenState extends State<HomeScreen> {
                 tipoPersona == "Administrador"
                     ? "Panel de Administración"
                     : "Mis Eventos",
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               content: SizedBox(
                 width: double.maxFinite,
-                height: 400,
+                height: MediaQuery.of(context).size.height * 0.7,
                 child: DefaultTabController(
-                  length: tipoPersona == "Administrador" ? 4 : 2,
+                  length: 3, // Solo 3 pestañas para empresario
                   child: Column(
                     children: [
                       TabBar(
                         isScrollable: true,
+                        labelColor: Colors.deepPurple,
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: Colors.deepPurple,
                         tabs: [
-                          if (tipoPersona == "Administrador")
-                            Tab(text: "Todos"),
-                          if (tipoPersona == "Administrador")
-                            Tab(text: "Pendientes"),
-                          Tab(text: "Aprobados"),
-                          Tab(text: "Rechazados"),
+                          Tab(icon: Icon(Icons.pending), text: "Pendientes"),
+                          Tab(
+                            icon: Icon(Icons.check_circle),
+                            text: "Aprobados",
+                          ),
+                          Tab(icon: Icon(Icons.cancel), text: "Rechazados"),
                         ],
                       ),
                       Expanded(
                         child: TabBarView(
                           children: [
-                            if (tipoPersona == "Administrador")
-                              _buildEventList('all'), // Nueva pestaña "Todos"
-                            if (tipoPersona == "Administrador")
-                              _buildEventList('pending'),
-                            _buildEventList('approved'),
-                            _buildEventList('rejected'),
+                            _buildEmpresarioEventList('pending'),
+                            _buildEmpresarioEventList('approved'),
+                            _buildEmpresarioEventList('rejected'),
                           ],
                         ),
                       ),
@@ -662,7 +663,10 @@ class HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text("Cerrar"),
+                  child: Text(
+                    "Cerrar",
+                    style: TextStyle(color: Colors.deepPurple),
+                  ),
                 ),
               ],
             ),
@@ -673,65 +677,196 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Construir lista de eventos por estado
-  Widget _buildEventList(String status) {
+  //build empresario
+  Widget _buildEmpresarioEventList(String status) {
     return StreamBuilder<QuerySnapshot>(
       stream:
-          tipoPersona == "Empresario"
-              ? FirebaseFirestore.instance
-                  .collection('eventos')
-                  .where('creatorId', isEqualTo: widget.user.uid)
-                  .where('status', isEqualTo: status)
-                  .orderBy('fechaTimestamp', descending: true)
-                  .snapshots()
-              : FirebaseFirestore.instance
-                  .collection('eventos')
-                  .where('status', isEqualTo: status)
-                  .orderBy('fechaTimestamp', descending: true)
-                  .snapshots(),
+          FirebaseFirestore.instance
+              .collection('eventos')
+              .where('creatorId', isEqualTo: widget.user.uid)
+              .where('status', isEqualTo: status)
+              .orderBy('fechaTimestamp', descending: true)
+              .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          debugPrint("🔥 Error en eventos $status: ${snapshot.error}");
-          return const Center(child: Text("Error al cargar eventos"));
+          return Center(child: CircularProgressIndicator());
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(child: Text("No hay eventos $status"));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.pending, size: 50, color: Colors.grey[400]),
+                SizedBox(height: 16),
+                Text(
+                  "No hay eventos ${_getStatusText(status).toLowerCase()}",
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          );
         }
 
-        final events = snapshot.data!.docs;
-
         return ListView.builder(
-          itemCount: events.length,
+          padding: EdgeInsets.all(8),
+          itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
-            final doc = events[index];
+            final doc = snapshot.data!.docs[index];
             final data = doc.data() as Map<String, dynamic>;
 
-            final event = {
-              ...data,
-              'id': doc.id,
-              // 🔁 Aquí renombramos para que coincidan con los que usa EventCard
-              'name': data['eventName'],
-              'localidad': data['direccion'],
-              'costo': data.containsKey('costo') ? data['costo'] : null,
-            };
-            debugPrint("📦 Evento construido: ${event.toString()}");
+            return Card(
+              margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            data['eventName'] ?? 'Evento sin nombre',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Chip(
+                          label: Text(
+                            _getStatusText(status),
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                          backgroundColor: _getColorForStatus(status),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    if (data['descripcion'] != null)
+                      Text(
+                        data['descripcion'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    SizedBox(height: 12),
+                    _buildEventInfoRow(
+                      Icons.calendar_today,
+                      _formatDate(data['fechaTimestamp']) +
+                          ' • ${data['hora'] ?? ''}',
+                    ),
+                    _buildEventInfoRow(
+                      Icons.location_on,
+                      data['direccion'] ?? 'Dirección no especificada',
+                    ),
 
-            debugPrint("📦 Evento final que se envía a EventCard: $event");
-
-            return EventCard(
-              event: event,
-              isFavorite: false,
-              onToggleFavorite: (e) {},
+                    // Mostrar razón de rechazo si está disponible
+                    if (status == 'rejected' && data['rejectionReason'] != null)
+                      Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red[100]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Razón del rechazo:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Text(data['rejectionReason']),
+                              SizedBox(height: 8),
+                              Text(
+                                'Debes crear un nuevo evento con las correcciones necesarias',
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             );
           },
         );
       },
     );
+  }
+
+  //widget que sirve para el panel de empresario
+  Widget _buildEventInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 14))),
+        ],
+      ),
+    );
+  }
+
+  Color _getColorForStatus(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  Future<void> _resubmitEvent(String eventId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('eventos')
+          .doc(eventId)
+          .update({
+            'status': 'pending',
+            'rejectionReason': FieldValue.delete(),
+          });
+
+      Navigator.pop(context); // Cerrar el diálogo
+      _showSuccessFeedback("Evento reenviado para revisión");
+    } catch (e) {
+      _showErrorSnackBar("Error al reenviar el evento: $e");
+    }
+  }
+
+  Future<void> _editEvent(String eventId) async {
+    // Implementa la navegación a tu pantalla de edición de eventos
+    // Navigator.push(context, MaterialPageRoute(builder: (context) => EditEventScreen(eventId: eventId));
+    _showSuccessFeedback("Editar evento: $eventId");
   }
 
   // Confirmar cierre de sesión
