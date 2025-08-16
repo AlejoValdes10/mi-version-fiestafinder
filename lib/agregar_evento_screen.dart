@@ -21,8 +21,8 @@ class AgregarEventoScreen extends StatefulWidget {
 class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _esGratis = false;
-  bool _tieneCapacidad = false; // Nueva variable para controlar la capacidad
-
+  bool _tieneCapacidad = false;
+  
   final _nombreController = TextEditingController();
   final _descripcionController = TextEditingController();
   final _capacidadController = TextEditingController();
@@ -37,11 +37,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _nequiController = TextEditingController();
   final _daviplataController = TextEditingController();
 
-  // Credenciales de Cloudinary
   final String _cloudinaryCloudName = 'di6pgbrlu';
   final String _cloudinaryUploadPreset = 'fiesta_finder_preset';
 
-  // Zonas de la ciudad
   final List<String> _zonas = [
     'Norte',
     'Occidente',
@@ -53,7 +51,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     'Suroriente',
   ];
 
-  // Medios de pago
   final List<String> _mediosDePagoDisponibles = [
     'Efectivo',
     'Tarjeta crédito/débito',
@@ -242,10 +239,9 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       _showErrorSnackBar('Por favor selecciona una zona de la ciudad');
       return;
     }
-
+    
     if (!_formKey.currentState!.validate()) return;
-
-    // Validación para eventos de pago
+    
     if (!_esGratis) {
       if (_tieneCapacidad && _capacidadController.text.isEmpty) {
         _showErrorSnackBar('Por favor ingresa la capacidad del evento');
@@ -260,8 +256,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         return;
       }
     }
-
-    // Validación para eventos gratis
+    
     if (_esGratis) {
       if (_costoController.text.isNotEmpty && _costoController.text != "0") {
         _showErrorSnackBar('Un evento gratis no puede tener costo');
@@ -275,6 +270,22 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         _showErrorSnackBar('Por favor ingresa la capacidad del evento');
         return;
       }
+    }
+
+    if (_mediosSeleccionados.contains('Transferencia bancaria') &&
+        _cuentaBancariaController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa la cuenta bancaria');
+      return;
+    }
+    if (_mediosSeleccionados.contains('Nequi') &&
+        _nequiController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa el número de Nequi');
+      return;
+    }
+    if (_mediosSeleccionados.contains('Daviplata') &&
+        _daviplataController.text.isEmpty) {
+      _showErrorSnackBar('Ingresa el número de Daviplata');
+      return;
     }
 
     setState(() => _isLoading = true);
@@ -317,18 +328,17 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'creatorId': widget.user.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
-        'capacidad': int.tryParse(_capacidadController.text) ?? 0,
-        'costo':
-            _esGratis ? 0.0 : (double.tryParse(_costoController.text) ?? 0.0),
-        'esGratis': _esGratis, // Añadido al documento
+        'capacidad': _tieneCapacidad ? (int.tryParse(_capacidadController.text) ?? 0) : 0,
+        'costo': _esGratis ? 0.0 : (double.tryParse(_costoController.text) ?? 0.0),
+        'esGratis': _esGratis,
+        'tieneCapacidad': _tieneCapacidad,
         'direccion': _direccionController.text.trim(),
-        'ubicacion':
-            _ubicacionEvento != null
-                ? GeoPoint(
-                  _ubicacionEvento!.latitude,
-                  _ubicacionEvento!.longitude,
-                )
-                : null,
+        'ubicacion': _ubicacionEvento != null
+            ? GeoPoint(
+                _ubicacionEvento!.latitude,
+                _ubicacionEvento!.longitude,
+              )
+            : null,
         'hora': _horaController.text.trim(),
         'contacto': _contactoController.text.trim(),
         'etiquetas':
@@ -363,8 +373,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    ));
   }
 
   void _showErrorSnackBar(String message) {
@@ -374,8 +383,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    ));
   }
 
   @override
@@ -424,88 +432,82 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
       ),
-      body:
-          _isLoading
-              ? Center(
-                child: CircularProgressIndicator(color: Color(0xFF6A11CB)),
-              )
-              : SingleChildScrollView(
-                padding: EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      _buildImageSection(),
-                      SizedBox(height: 25),
-                      _buildSection(
-                        title: 'Información Básica',
-                        child: _buildBasicInfoSection(),
-                      ),
-                      SizedBox(height: 20),
-                      _buildSection(
-                        title: 'Detalles del Evento',
-                        child: _buildDetailsSection(),
-                      ),
-                      SizedBox(height: 20),
-                      _buildSection(
-                        title: 'Características',
-                        child: _buildFeaturesSection(),
-                      ),
-                      SizedBox(height: 20),
-                      _buildSection(
-                        title: 'Medios de Pago',
-                        child: _buildMediosDePagoSection(),
-                      ),
-                      SizedBox(height: 20),
-                      _buildSection(
-                        title: 'Información de Pagos',
-                        child: _buildPaymentInfoSection(),
-                      ),
-                      SizedBox(height: 30),
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(color: Color(0xFF6A11CB)),
+            )
+          : SingleChildScrollView(
+              padding: EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildImageSection(),
+                    SizedBox(height: 25),
+                    _buildSection(
+                      title: 'Información Básica',
+                      child: _buildBasicInfoSection(),
+                    ),
+                    SizedBox(height: 20),
+                    _buildSection(
+                      title: 'Detalles del Evento',
+                      child: _buildDetailsSection(),
+                    ),
+                    SizedBox(height: 20),
+                    _buildSection(
+                      title: 'Características',
+                      child: _buildFeaturesSection(),
+                    ),
+                    SizedBox(height: 20),
+                    _buildSection(
+                      title: 'Medios de Pago',
+                      child: _buildMediosDePagoSection(),
+                    ),
+                    SizedBox(height: 20),
+                    _buildSection(
+                      title: 'Información de Pagos',
+                      child: _buildPaymentInfoSection(),
+                    ),
+                    SizedBox(height: 30),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
                         ),
-                        child: ElevatedButton(
-                          onPressed: _submitEvent,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(
-                              0,
-                              209,
-                              28,
-                              28,
-                            ),
-                            shadowColor: const Color.fromARGB(0, 255, 4, 4),
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: Offset(0, 5),
                           ),
-                          child: Text(
-                            'PUBLICAR EVENTO',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                              color: Colors.white,
-                            ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _submitEvent,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'PUBLICAR EVENTO',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
     );
   }
 
@@ -518,31 +520,37 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
-        child:
-            _imageFile != null
-                ? ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.file(_imageFile!, fit: BoxFit.cover),
-                )
-                : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.add_photo_alternate,
-                      size: 50,
-                      color: Colors.grey[600],
+        child: _imageFile != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.file(_imageFile!, fit: BoxFit.cover),
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate,
+                    size: 50,
+                    color: Colors.grey[600],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Agregar imagen principal',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Agregar imagen principal',
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -579,9 +587,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                     lastDate: DateTime(DateTime.now().year + 2),
                   );
                   if (picked != null) {
-                    _fechaController.text = DateFormat(
-                      'yyyy-MM-dd',
-                    ).format(picked);
+                    _fechaController.text = DateFormat('yyyy-MM-dd').format(picked);
                   }
                 },
               ),
@@ -687,20 +693,18 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                 options: MapOptions(center: _ubicacionEvento, zoom: 15.0),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c'],
                   ),
                   MarkerLayer(
                     markers: [
                       Marker(
                         point: _ubicacionEvento!,
-                        builder:
-                            (ctx) => Icon(
-                              Icons.location_pin,
-                              color: Colors.red,
-                              size: 40,
-                            ),
+                        builder: (ctx) => Icon(
+                          Icons.location_pin,
+                          color: Colors.red,
+                          size: 40,
+                        ),
                       ),
                     ],
                   ),
@@ -710,32 +714,41 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           ),
         ],
         SizedBox(height: 16),
-        _buildModernSwitch(
-          value: _esGratis,
-          onChanged:
-              (val) => setState(() {
-                _esGratis = val;
-                if (val) {
-                  // Si es gratis, limpiamos los medios de pago y el costo
-                  _mediosSeleccionados.clear();
-                  _costoController.clear();
-                }
-              }),
-          label: 'Evento gratuito',
-          icon: Icons.money_off,
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black, width: 1.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: _buildModernSwitch(
+            value: _esGratis,
+            onChanged: (val) => setState(() {
+              _esGratis = val;
+              if (val) {
+                _mediosSeleccionados.clear();
+                _costoController.clear();
+              }
+            }),
+            label: 'Evento gratuito',
+            icon: Icons.money_off,
+          ),
         ),
         SizedBox(height: 16),
-        _buildModernSwitch(
-          value: _tieneCapacidad,
-          onChanged:
-              (val) => setState(() {
-                _tieneCapacidad = val;
-                if (!val) {
-                  _capacidadController.clear();
-                }
-              }),
-          label: 'Tú evento tiene capacidad limitada',
-          icon: Icons.people,
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black, width: 1.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: _buildModernSwitch(
+            value: _tieneCapacidad,
+            onChanged: (val) => setState(() {
+              _tieneCapacidad = val;
+              if (!val) {
+                _capacidadController.clear();
+              }
+            }),
+            label: 'Mi evento tiene capacidad limitada',
+            icon: Icons.people,
+          ),
         ),
         if (_tieneCapacidad) ...[
           SizedBox(height: 16),
@@ -789,13 +802,12 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           isDense: true,
           isExpanded: true,
           style: GoogleFonts.poppins(color: Colors.black87),
-          items:
-              items.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
+          items: items.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value),
+            );
+          }).toList(),
           onChanged: (String? newValue) {
             onChanged(newValue);
           },
@@ -867,7 +879,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[300]!),
       ),
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -893,8 +904,8 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         Text(
           'Selecciona los medios de pago aceptados:',
           style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: _esGratis ? Colors.grey : Colors.grey[700],
+            fontSize: 14, 
+            color: _esGratis ? Colors.grey : Colors.grey[700]
           ),
         ),
         SizedBox(height: 12),
@@ -905,34 +916,30 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children:
-                  _mediosDePagoDisponibles.map((medio) {
-                    final isSelected = _mediosSeleccionados.contains(medio);
-                    return ChoiceChip(
-                      label: Text(medio),
-                      selected: isSelected,
-                      onSelected:
-                          _esGratis
-                              ? null
-                              : (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    _mediosSeleccionados.add(medio);
-                                  } else {
-                                    _mediosSeleccionados.remove(medio);
-                                  }
-                                });
-                              },
-                      labelStyle: GoogleFonts.poppins(
-                        color: isSelected ? Colors.white : Colors.black87,
-                      ),
-                      selectedColor: Color(0xFF6A11CB),
-                      backgroundColor: Colors.grey[200],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    );
-                  }).toList(),
+              children: _mediosDePagoDisponibles.map((medio) {
+                final isSelected = _mediosSeleccionados.contains(medio);
+                return ChoiceChip(
+                  label: Text(medio),
+                  selected: isSelected,
+                  onSelected: _esGratis ? null : (selected) {
+                    setState(() {
+                      if (selected) {
+                        _mediosSeleccionados.add(medio);
+                      } else {
+                        _mediosSeleccionados.remove(medio);
+                      }
+                    });
+                  },
+                  labelStyle: GoogleFonts.poppins(
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                  selectedColor: Color(0xFF6A11CB),
+                  backgroundColor: Colors.grey[200],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ),
