@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-/*import 'package:firebase_storage/firebase_storage.dart';*/
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +20,9 @@ class AgregarEventoScreen extends StatefulWidget {
 
 class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _esGratis = false;
+  bool _tieneCapacidad = false; // Nueva variable para controlar la capacidad
+
   final _nombreController = TextEditingController();
   final _descripcionController = TextEditingController();
   final _capacidadController = TextEditingController();
@@ -35,7 +37,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
   final _nequiController = TextEditingController();
   final _daviplataController = TextEditingController();
 
-// Credenciales de Cloudinary 
+  // Credenciales de Cloudinary
   final String _cloudinaryCloudName = 'di6pgbrlu';
   final String _cloudinaryUploadPreset = 'fiesta_finder_preset';
 
@@ -128,22 +130,16 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     }
   }
 
-  // Añade estas variables para tus credenciales de Cloudinary
-  // Te explico esto en el paso 5
-
-  // ... tu código existente
   Future<String?> _uploadImage(File image) async {
     try {
       setState(() => _isLoading = true);
 
-      // Configura la instancia de Cloudinary con tu Cloud Name y Upload Preset
       final cloudinary = CloudinaryPublic(
         _cloudinaryCloudName,
         _cloudinaryUploadPreset,
         cache: false,
       );
 
-      // Sube la imagen a Cloudinary
       final response = await cloudinary.uploadFile(
         CloudinaryFile.fromFile(
           image.path,
@@ -151,7 +147,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         ),
       );
 
-      // Devuelve la URL segura de la imagen
       return response.secureUrl;
     } on CloudinaryException catch (e) {
       debugPrint('Error al subir imagen a Cloudinary: ${e.message}');
@@ -190,7 +185,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
 
     await showDialog<String>(
       context: context,
-      barrierDismissible: false, // Evita cerrar el diálogo tocando fuera
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
@@ -236,38 +231,50 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       if (result != null && result.isNotEmpty) {
         setState(() {
           _direccionController.text = result;
-          _ubicacionEvento = null; // Limpiamos coordenadas si ya no se usan
+          _ubicacionEvento = null;
         });
       }
     });
   }
 
   Future<void> _submitEvent() async {
-
     if (_zonaSeleccionada == null || _zonaSeleccionada!.isEmpty) {
-  _showErrorSnackBar('Por favor selecciona una zona de la ciudad');
-  return;
-}
-    if (!_formKey.currentState!.validate()) return;
-    if (_mediosSeleccionados.isEmpty) {
-      _showErrorSnackBar('Selecciona al menos un medio de pago');
+      _showErrorSnackBar('Por favor selecciona una zona de la ciudad');
       return;
     }
 
-    if (_mediosSeleccionados.contains('Transferencia bancaria') &&
-        _cuentaBancariaController.text.isEmpty) {
-      _showErrorSnackBar('Ingresa la cuenta bancaria');
-      return;
+    if (!_formKey.currentState!.validate()) return;
+
+    // Validación para eventos de pago
+    if (!_esGratis) {
+      if (_tieneCapacidad && _capacidadController.text.isEmpty) {
+        _showErrorSnackBar('Por favor ingresa la capacidad del evento');
+        return;
+      }
+      if (_costoController.text.isEmpty) {
+        _showErrorSnackBar('Por favor ingresa el costo del evento');
+        return;
+      }
+      if (_mediosSeleccionados.isEmpty) {
+        _showErrorSnackBar('Selecciona al menos un medio de pago');
+        return;
+      }
     }
-    if (_mediosSeleccionados.contains('Nequi') &&
-        _nequiController.text.isEmpty) {
-      _showErrorSnackBar('Ingresa el número de Nequi');
-      return;
-    }
-    if (_mediosSeleccionados.contains('Daviplata') &&
-        _daviplataController.text.isEmpty) {
-      _showErrorSnackBar('Ingresa el número de Daviplata');
-      return;
+
+    // Validación para eventos gratis
+    if (_esGratis) {
+      if (_costoController.text.isNotEmpty && _costoController.text != "0") {
+        _showErrorSnackBar('Un evento gratis no puede tener costo');
+        return;
+      }
+      if (_mediosSeleccionados.isNotEmpty) {
+        _showErrorSnackBar('Un evento gratis no puede tener medios de pago');
+        return;
+      }
+      if (_tieneCapacidad && _capacidadController.text.isEmpty) {
+        _showErrorSnackBar('Por favor ingresa la capacidad del evento');
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
@@ -306,12 +313,14 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'fecha': DateFormat('dd/MM/yyyy').format(fechaEvento),
         'fechaTimestamp': Timestamp.fromDate(fechaEvento),
         'tipo': _tipoSeleccionado,
-        /*ojo*/ 'image': imageUrl ?? _imagenPredefinida ?? 'assets/depor.png',
+        'image': imageUrl ?? _imagenPredefinida ?? 'assets/depor.png',
         'creatorId': widget.user.uid,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
         'capacidad': int.tryParse(_capacidadController.text) ?? 0,
-        'costo': double.tryParse(_costoController.text) ?? 0.0,
+        'costo':
+            _esGratis ? 0.0 : (double.tryParse(_costoController.text) ?? 0.0),
+        'esGratis': _esGratis, // Añadido al documento
         'direccion': _direccionController.text.trim(),
         'ubicacion':
             _ubicacionEvento != null
@@ -327,7 +336,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         'politicas': _politicasController.text.trim(),
         'accesibilidad': _accesibilidad,
         'parqueadero': _parqueadero,
-        'mediosPago': _mediosSeleccionados,
+        'mediosPago': _esGratis ? [] : _mediosSeleccionados,
         'infoPagos': infoPagos,
         'rating': 0,
         'views': 0,
@@ -470,22 +479,27 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
                         child: ElevatedButton(
                           onPressed: _submitEvent,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(0, 209, 28, 28),
+                            backgroundColor: const Color.fromARGB(
+                              0,
+                              209,
+                              28,
+                              28,
+                            ),
                             shadowColor: const Color.fromARGB(0, 255, 4, 4),
                             padding: EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                         child: Text(
-                              'PUBLICAR EVENTO',
-                               style: GoogleFonts.poppins(
-                               fontSize: 16,
-                               fontWeight: FontWeight.w600,
-                               letterSpacing: 1.2,
-                               color: Colors.white, // Esta línea añade el color blanco
-                                 ),
-                                 )
+                          child: Text(
+                            'PUBLICAR EVENTO',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -504,18 +518,6 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [Colors.grey[200]!, Colors.grey[300]!],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
         ),
         child:
             _imageFile != null
@@ -608,6 +610,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     int maxLines = 1,
     VoidCallback? onTap,
     TextInputType? keyboardType,
+    bool? enabled,
   }) {
     return TextFormField(
       controller: controller,
@@ -615,6 +618,7 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
       onTap: onTap,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      enabled: enabled,
       style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         labelText: label,
@@ -640,27 +644,27 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
     return Column(
       children: [
         _buildModernDropdown(
-           value: _zonaSeleccionada,
-           items: _zonas,
-           label: 'Zona de la ciudad*',
-           icon: Icons.location_on,
-           onChanged: (val) => setState(() => _zonaSeleccionada = val),
+          value: _zonaSeleccionada,
+          items: _zonas,
+          label: 'Zona de la ciudad*',
+          icon: Icons.location_on,
+          onChanged: (val) => setState(() => _zonaSeleccionada = val),
         ),
         SizedBox(height: 16),
         _buildModernDropdown(
-            value: _tipoSeleccionado,
-            items: _tiposEvento,
-            label: 'Tipo de evento*',
-            icon: Icons.category,
-            onChanged: (val) {
-           if (val != null) {
-           setState(() {
-          _tipoSeleccionado = val;
-          _asignarImagenAleatoria(val);
-      });
-    }
-  },
-),
+          value: _tipoSeleccionado,
+          items: _tiposEvento,
+          label: 'Tipo de evento*',
+          icon: Icons.category,
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _tipoSeleccionado = val;
+                _asignarImagenAleatoria(val);
+              });
+            }
+          },
+        ),
         SizedBox(height: 16),
         _buildModernTextField(
           controller: _direccionController,
@@ -706,89 +710,113 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
           ),
         ],
         SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildModernTextField(
-                controller: _capacidadController,
-                label: 'Capacidad*',
-                icon: Icons.people,
-                keyboardType: TextInputType.number,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _buildModernTextField(
-                controller: _costoController,
-                label: 'costo',
-                icon: Icons.attach_money,
-                keyboardType: TextInputType.number,
-              ),
-            ),
-          ],
+        _buildModernSwitch(
+          value: _esGratis,
+          onChanged:
+              (val) => setState(() {
+                _esGratis = val;
+                if (val) {
+                  // Si es gratis, limpiamos los medios de pago y el costo
+                  _mediosSeleccionados.clear();
+                  _costoController.clear();
+                }
+              }),
+          label: 'Evento gratuito',
+          icon: Icons.money_off,
         ),
+        SizedBox(height: 16),
+        _buildModernSwitch(
+          value: _tieneCapacidad,
+          onChanged:
+              (val) => setState(() {
+                _tieneCapacidad = val;
+                if (!val) {
+                  _capacidadController.clear();
+                }
+              }),
+          label: 'Tú evento tiene capacidad limitada',
+          icon: Icons.people,
+        ),
+        if (_tieneCapacidad) ...[
+          SizedBox(height: 16),
+          _buildModernTextField(
+            controller: _capacidadController,
+            label: 'Capacidad máxima*',
+            icon: Icons.format_list_numbered,
+            keyboardType: TextInputType.number,
+          ),
+        ],
+        if (!_esGratis) ...[
+          SizedBox(height: 16),
+          _buildModernTextField(
+            controller: _costoController,
+            label: 'Costo de entrada*',
+            icon: Icons.attach_money,
+            keyboardType: TextInputType.number,
+          ),
+        ],
       ],
     );
   }
 
-Widget _buildModernDropdown({
-  required String? value,
-  required List<String> items,
-  required String label,
-  required IconData icon,
-  required Function(String?) onChanged,
-}) {
-  return InputDecorator(
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
-      floatingLabelStyle: GoogleFonts.poppins(color: Color(0xFF6A11CB)),
-      prefixIcon: Icon(icon, color: Color(0xFF6A11CB)),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey[300]!),
+  Widget _buildModernDropdown({
+    required String? value,
+    required List<String> items,
+    required String label,
+    required IconData icon,
+    required Function(String?) onChanged,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.poppins(color: Colors.grey[600]),
+        floatingLabelStyle: GoogleFonts.poppins(color: Color(0xFF6A11CB)),
+        prefixIcon: Icon(icon, color: Color(0xFF6A11CB)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Color(0xFF6A11CB), width: 1.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey[50],
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Color(0xFF6A11CB), width: 1.5),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          isExpanded: true,
+          style: GoogleFonts.poppins(color: Colors.black87),
+          items:
+              items.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+          onChanged: (String? newValue) {
+            onChanged(newValue);
+          },
+          hint: Text('Selecciona', style: GoogleFonts.poppins()),
+        ),
       ),
-      filled: true,
-      fillColor: Colors.grey[50],
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: value,
-        isDense: true,
-        isExpanded: true,
-        style: GoogleFonts.poppins(color: Colors.black87),
-        items: items.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
-        onChanged: (String? newValue) {
-          onChanged(newValue);
-        },
-        hint: Text('Selecciona', style: GoogleFonts.poppins()),
-      ),
-    ),
-  );
-}
-
-  // Agrega este método para asignar una imagen aleatoria
-  void _asignarImagenAleatoria(String tipoEvento) {
-  if (_eventoImagenes.containsKey(tipoEvento)) {
-    final random = Random();
-    final imagenes = _eventoImagenes[tipoEvento]!;
-    final imagenAleatoria = imagenes[random.nextInt(imagenes.length)];
-
-    setState(() {
-      _imagenPredefinida = imagenAleatoria;
-      _imageFile = null;
-    });
+    );
   }
-}
+
+  void _asignarImagenAleatoria(String tipoEvento) {
+    if (_eventoImagenes.containsKey(tipoEvento)) {
+      final random = Random();
+      final imagenes = _eventoImagenes[tipoEvento]!;
+      final imagenAleatoria = imagenes[random.nextInt(imagenes.length)];
+
+      setState(() {
+        _imagenPredefinida = imagenAleatoria;
+        _imageFile = null;
+      });
+    }
+  }
 
   Widget _buildFeaturesSection() {
     return Column(
@@ -851,9 +879,7 @@ Widget _buildModernDropdown({
             value: value,
             onChanged: onChanged,
             activeColor: Color(0xFF6A11CB),
-            /*ojo*/ activeTrackColor: Color(
-              0xFF6A11CB,
-            ).withAlpha(76), // 0.3 * 255 = 76.5
+            activeTrackColor: Color(0xFF6A11CB).withAlpha(76),
           ),
         ],
       ),
@@ -866,39 +892,51 @@ Widget _buildModernDropdown({
       children: [
         Text(
           'Selecciona los medios de pago aceptados:',
-          style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[700]),
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: _esGratis ? Colors.grey : Colors.grey[700],
+          ),
         ),
         SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children:
-              _mediosDePagoDisponibles.map((medio) {
-                final isSelected = _mediosSeleccionados.contains(medio);
-                return ChoiceChip(
-                  label: Text(medio),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        _mediosSeleccionados.add(medio);
-                      } else {
-                        _mediosSeleccionados.remove(medio);
-                      }
-                    });
-                  },
-                  labelStyle: GoogleFonts.poppins(
-                    color: isSelected ? Colors.white : Colors.black87,
-                  ),
-                  selectedColor: Color(0xFF6A11CB),
-                  backgroundColor: Colors.grey[200],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                );
-              }).toList(),
+        IgnorePointer(
+          ignoring: _esGratis,
+          child: Opacity(
+            opacity: _esGratis ? 0.5 : 1.0,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  _mediosDePagoDisponibles.map((medio) {
+                    final isSelected = _mediosSeleccionados.contains(medio);
+                    return ChoiceChip(
+                      label: Text(medio),
+                      selected: isSelected,
+                      onSelected:
+                          _esGratis
+                              ? null
+                              : (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _mediosSeleccionados.add(medio);
+                                  } else {
+                                    _mediosSeleccionados.remove(medio);
+                                  }
+                                });
+                              },
+                      labelStyle: GoogleFonts.poppins(
+                        color: isSelected ? Colors.white : Colors.black87,
+                      ),
+                      selectedColor: Color(0xFF6A11CB),
+                      backgroundColor: Colors.grey[200],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    );
+                  }).toList(),
+            ),
+          ),
         ),
-        if (_mediosSeleccionados.isEmpty)
+        if (_mediosSeleccionados.isEmpty && !_esGratis)
           Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
@@ -919,6 +957,7 @@ Widget _buildModernDropdown({
             label: 'Número de cuenta bancaria*',
             icon: Icons.account_balance,
             keyboardType: TextInputType.number,
+            enabled: !_esGratis,
           ),
         if (_mediosSeleccionados.contains('Nequi'))
           _buildModernTextField(
@@ -926,6 +965,7 @@ Widget _buildModernDropdown({
             label: 'Número de Nequi*',
             icon: Icons.phone_android,
             keyboardType: TextInputType.phone,
+            enabled: !_esGratis,
           ),
         if (_mediosSeleccionados.contains('Daviplata'))
           _buildModernTextField(
@@ -933,6 +973,7 @@ Widget _buildModernDropdown({
             label: 'Número de Daviplata*',
             icon: Icons.phone_android,
             keyboardType: TextInputType.phone,
+            enabled: !_esGratis,
           ),
       ],
     );
