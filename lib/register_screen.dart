@@ -24,6 +24,7 @@ class RegisterScreenState extends State<RegisterScreen> {
   String personType = 'Usuario';
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _obscurePassword = true;
 
   bool _isEmailValid(String email) {
     return RegExp(
@@ -317,82 +318,91 @@ class RegisterScreenState extends State<RegisterScreen> {
   }
 
   // **Campo de contraseña con el ojito**
-  Widget _buildPasswordField(TextEditingController controller) {
-    bool obscureText = true;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            prefixIcon: Icon(Icons.lock),
-            hintText: 'Contraseña',
-            filled: true,
-            fillColor: Color(
-              0xFFF3F4F6,
-            ), // Se mantiene el color de fondo original
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none, // Mantiene el borde sin cambios
-            ),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscureText ? Icons.visibility_off : Icons.visibility,
-                color: Colors.grey, // El color del ícono sigue igual (gris)
-              ),
-              onPressed: () {
-                setState(() {
-                  obscureText = !obscureText;
-                });
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // **Botón de Google**
-  Widget _buildGoogleButton() {
-    return GestureDetector(
-      onTap: () {
-        // Tu lógica para iniciar sesión con Google
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 10,
-          horizontal: 15,
-        ), // Espaciado horizontal añadido
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 5,
-              offset: Offset(0, 2),
-              color: Colors.black.withOpacity(0.1),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/google.png', // Asegúrate de que el archivo esté en assets
-              width: 28,
-              height: 28,
-            ),
-            const SizedBox(width: 12), // Mayor espacio entre el logo y el texto
-            Text(
-              'Continuar con Google',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+Widget _buildPasswordField(TextEditingController controller) {
+  return TextFormField(
+    controller: controller,
+    obscureText: _obscurePassword,
+    keyboardType: TextInputType.visiblePassword,
+    style: const TextStyle(color: Colors.black87, fontSize: 14),
+    decoration: InputDecoration(
+      labelText: 'Contraseña',
+      labelStyle: TextStyle(color: Colors.grey[600]),
+      prefixIcon: const Icon(
+        Icons.lock,
+        color: Color.fromARGB(255, 39, 48, 176), // Morado igual a los otros
       ),
-    );
-  }
+      suffixIcon: IconButton(
+        icon: Icon(
+          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+          color: Colors.grey,
+        ),
+        onPressed: () {
+          setState(() {
+            _obscurePassword = !_obscurePassword;
+          });
+        },
+      ),
+      filled: true,
+      fillColor: Colors.white, // Fondo blanco
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      border: OutlineInputBorder(
+        borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(
+          color: Color.fromARGB(255, 39, 48, 176), // Morado al enfocar
+          width: 2.0,
+        ),
+        borderRadius: BorderRadius.all(Radius.circular(16.0)),
+      ),
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      floatingLabelStyle: const TextStyle(
+        color: Color.fromARGB(255, 39, 48, 176),
+      ),
+    ),
+  );
+}
+
+Widget _buildGoogleButton() {
+  return GestureDetector(
+    onTap: _registerWithGoogle,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 5,
+            offset: Offset(0, 2),
+            color: Colors.black.withOpacity(0.1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/google.png',
+            width: 28,
+            height: 28,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Continuar con Google',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   Widget _buildLoginText() {
     return Row(
@@ -401,10 +411,11 @@ class RegisterScreenState extends State<RegisterScreen> {
         const Text('¿Ya tienes cuenta? '),
         GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => LoginScreen()),
-            );
+            Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(builder: (context) => LoginScreen()),
+);
+
           },
           child: const Text(
             'Inicia sesión',

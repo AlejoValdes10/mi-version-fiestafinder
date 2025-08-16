@@ -45,8 +45,9 @@ class HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> favoriteEvents = [];
 
   String selectedFilter = "Todos";
-  String selectedDate = "Todas";
-  String selectedType = "Todos";
+String selectedDate = "Todas";
+String selectedType = "Todos";
+
 
   @override
   void initState() {
@@ -124,112 +125,109 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _setupEventListeners() async {
-    setState(() {
-      _loadingEvents = true;
-      events = [];
-    });
+  setState(() {
+    _loadingEvents = true;
+    events = [];
+  });
 
-    try {
-      Query query;
-      final userId = widget.user.uid;
+  try {
+    Query query;
+    final userId = widget.user.uid;
 
-      debugPrint("🟢 Usuario: $tipoPersona | ID: $userId");
+    debugPrint("🟢 Usuario: $tipoPersona | ID: $userId");
 
-      // Filtrado por tipo de usuario
-      if (tipoPersona == "Administrador") {
+    if (tipoPersona == "Administrador") {
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .orderBy('fechaTimestamp', descending: true);
+    } else if (tipoPersona == "Empresario") {
+      final userDoc = await FirebaseFirestore.instance.collection('usuarios').doc(userId).get();
+
+      if (userDoc.data()?['tipoPersona'] != 'Empresario') {
+        throw Exception('El usuario no tiene permisos de empresario');
+      }
+
+      try {
         query = FirebaseFirestore.instance
             .collection('eventos')
+            .where('creatorId', isEqualTo: userId)
             .orderBy('fechaTimestamp', descending: true);
-      } else if (tipoPersona == "Empresario") {
-        // Verificación explícita de permisos
-        final userDoc =
-            await FirebaseFirestore.instance
-                .collection('usuarios')
-                .doc(userId)
-                .get();
-
-        if (userDoc.data()?['tipoPersona'] != 'Empresario') {
-          throw Exception('El usuario no tiene permisos de empresario');
-        }
-
-        // CONSULTA PRINCIPAL CON MANEJO DE ERRORES
-        try {
+      } catch (e) {
+        debugPrint("🔴 Error en consulta: ${e.toString()}");
+        if (e is FirebaseException && e.code == 'failed-precondition') {
+          debugPrint("Se requiere índice compuesto: ${e.message}");
           query = FirebaseFirestore.instance
               .collection('eventos')
-              .where('creatorId', isEqualTo: widget.user.uid)
-              .where('status', isEqualTo: 'approved') // ✅ Compatible con reglas
+              .where('creatorId', isEqualTo: userId)
               .orderBy('fechaTimestamp', descending: true);
-
-          // Prueba la consulta
-          final testQuery = await query.limit(1).get();
-          debugPrint(
-            "✅ Consulta válida. Eventos encontrados: ${testQuery.docs.length}",
-          );
-        } catch (e) {
-          debugPrint("🔴 Error en consulta: ${e.toString()}");
-          if (e is FirebaseException && e.code == 'failed-precondition') {
-            debugPrint("Se requiere índice compuesto: ${e.message}");
-            // Consulta alternativa temporal
-            query = FirebaseFirestore.instance
-                .collection('eventos')
-                .where('creatorId', isEqualTo: userId)
-                .orderBy('fechaTimestamp', descending: true);
-          } else {
-            rethrow;
-          }
+        } else {
+          rethrow;
         }
-      } else {
-        query = FirebaseFirestore.instance
-            .collection('eventos')
-            .where('status', isEqualTo: 'approved')
-            .orderBy('fechaTimestamp', descending: true);
+      }
+    } else {
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .where('status', isEqualTo: 'approved');
+
+      if (selectedFilter != "Todos") {
+        query = query.where('localidad', isEqualTo: selectedFilter);
       }
 
-      // Stream de eventos en tiempo real
-      query.snapshots().listen(
-        (snapshot) {
-          if (!mounted) return;
-
-          final newEvents =
-              snapshot.docs.map((doc) {
-                final data = doc.data() as Map<String, dynamic>? ?? {};
-                return {
-                  'id': doc.id,
-                  'name': data['eventName'] ?? 'Evento sin nombre',
-                  'image': data['image'] ?? '',
-                  'localidad': data['direccion'] ?? 'Ubicación desconocida',
-                  'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
-                  'tipo': data['tipo'] ?? 'General',
-                  'status': data['status'] ?? 'pending',
-                  'creatorId': data['creatorId'] ?? '',
-                  'descripcion': data['descripcion'] ?? 'Sin descripción',
-                };
-              }).toList();
-
-          if (mounted) {
-            setState(() {
-              events = newEvents;
-              _loadingEvents = false;
-              _filterEvents();
-            });
-          }
-        },
-        onError: (e) {
-          debugPrint("Error en stream: ${e.toString()}");
-          if (mounted) {
-            setState(() => _loadingEvents = false);
-            _showErrorSnackBar("Error en tiempo real: ${e.toString()}");
-          }
-        },
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadingEvents = false);
-        _showErrorSnackBar("Error al cargar eventos: ${e.toString()}");
+      if (selectedDate != "Todas") {
+        query = query.where('fecha', isEqualTo: selectedDate);
       }
-      debugPrint("Error en _setupEventListeners: ${e.toString()}");
+
+      if (selectedType != "Todos") {
+        query = query.where('tipo', isEqualTo: selectedType);
+      }
+
+      query = query.orderBy('fechaTimestamp', descending: true);
     }
+
+    query.snapshots().listen(
+      (snapshot) {
+        if (!mounted) return;
+
+        final newEvents = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          return {
+            'id': doc.id,
+            'name': data['eventName'] ?? 'Evento sin nombre',
+            'image': data['image'] ?? '',
+            'localidad': data['direccion'] ?? 'Ubicación desconocida',
+            'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
+            'tipo': data['tipo'] ?? 'General',
+            'status': data['status'] ?? 'pending',
+            'creatorId': data['creatorId'] ?? '',
+            'descripcion': data['descripcion'] ?? 'Sin descripción',
+          };
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            events = newEvents;
+            _loadingEvents = false;
+            _filterEvents();
+          });
+        }
+      },
+      onError: (e) {
+        debugPrint("Error en stream: ${e.toString()}");
+        if (mounted) {
+          setState(() => _loadingEvents = false);
+          _showErrorSnackBar("Error en tiempo real: ${e.toString()}");
+        }
+      },
+    );
+  } catch (e) {
+    if (mounted) {
+      setState(() => _loadingEvents = false);
+      _showErrorSnackBar("Error al cargar eventos: ${e.toString()}");
+    }
+    debugPrint("Error en _setupEventListeners: ${e.toString()}");
   }
+}
+
 
   // Formatear fecha desde diferentes formatos
   String _formatDate(dynamic date) {
@@ -247,44 +245,28 @@ class HomeScreenState extends State<HomeScreen> {
 
   // Filtrar eventos según búsqueda y filtros
   void _filterEvents() {
-    final query = searchController.text.toLowerCase();
+  final query = searchController.text.toLowerCase();
 
-    setState(() {
-      filteredEvents =
-          events.where((event) {
-            final matchesSearch =
-                event["name"]?.toLowerCase().contains(query) ?? false;
-            final matchesLocation =
-                selectedFilter == "Todos" ||
-                event["localidad"] == selectedFilter;
-            final matchesDate =
-                selectedDate == "Todas" || event["fecha"] == selectedDate;
-            final matchesType =
-                selectedType == "Todos" || event["tipo"] == selectedType;
+  setState(() {
+    filteredEvents = events.where((event) {
+      final matchesSearch = event["name"]?.toLowerCase().contains(query) ?? false;
+      final matchesLocation = selectedFilter == "Todos" || event["localidad"] == selectedFilter;
+      final matchesDate = selectedDate == "Todas" || event["fecha"] == selectedDate;
+      final matchesType = selectedType == "Todos" || event["tipo"] == selectedType;
 
-            // Para Admin/Empresario: ver todos o solo sus eventos
-            if (tipoPersona == "Administrador") {
-              return matchesSearch &&
-                  matchesLocation &&
-                  matchesDate &&
-                  matchesType;
-            } else if (tipoPersona == "Empresario") {
-              final isMyEvent = event["creatorId"] == widget.user.uid;
-              return matchesSearch &&
-                  matchesLocation &&
-                  matchesDate &&
-                  matchesType &&
-                  (isMyEvent || event["status"] == "approved");
-            } else {
-              // Usuario normal
-              return matchesSearch &&
-                  matchesLocation &&
-                  matchesDate &&
-                  matchesType;
-            }
-          }).toList();
-    });
-  }
+      if (tipoPersona == "Administrador") {
+        return matchesSearch && matchesLocation && matchesDate && matchesType;
+      } else if (tipoPersona == "Empresario") {
+        final isMyEvent = event["creatorId"] == widget.user.uid;
+        return matchesSearch && matchesLocation && matchesDate && matchesType && (isMyEvent || event["status"] == "approved");
+      } else {
+        // Usuario normal
+        return matchesSearch && matchesLocation && matchesDate && matchesType && event["status"] == "approved";
+      }
+    }).toList();
+  });
+}
+
 
   // Manejar favoritos
   Future<void> _toggleFavorite(Map<String, dynamic> event) async {
@@ -845,30 +827,6 @@ class HomeScreenState extends State<HomeScreen> {
         return Colors.orange;
     }
   }
-
-  Future<void> _resubmitEvent(String eventId) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('eventos')
-          .doc(eventId)
-          .update({
-            'status': 'pending',
-            'rejectionReason': FieldValue.delete(),
-          });
-
-      Navigator.pop(context); // Cerrar el diálogo
-      _showSuccessFeedback("Evento reenviado para revisión");
-    } catch (e) {
-      _showErrorSnackBar("Error al reenviar el evento: $e");
-    }
-  }
-
-  Future<void> _editEvent(String eventId) async {
-    // Implementa la navegación a tu pantalla de edición de eventos
-    // Navigator.push(context, MaterialPageRoute(builder: (context) => EditEventScreen(eventId: eventId));
-    _showSuccessFeedback("Editar evento: $eventId");
-  }
-
   // Confirmar cierre de sesión
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
