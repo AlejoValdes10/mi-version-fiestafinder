@@ -15,16 +15,21 @@ class EventCard extends StatelessWidget {
     required this.onToggleFavorite,
   });
 
-  String _getField(String key, [String defaultValue = '--']) {
+  // Método auxiliar para obtener campos con valor por defecto
+  dynamic _getField(String key, [dynamic defaultValue = '--']) {
     final value = event[key];
     return (value != null && value.toString().trim().isNotEmpty)
-        ? value.toString()
+        ? value
         : defaultValue;
   }
 
+  // Método para obtener el precio formateado
   String _getPrice() {
-    final price = event['costo'];
-    if (price == null) return 'Consultar';
+    final bool esGratis = _getField('esGratis', false);
+    if (esGratis) return 'Gratis';
+
+    final price = _getField('costo');
+    if (price == null) return 'Consultar precio';
 
     if (price is num) {
       return price <= 0 ? 'Gratis' : '\$${price.toStringAsFixed(0)}';
@@ -32,288 +37,280 @@ class EventCard extends StatelessWidget {
 
     final parsed = double.tryParse(price.toString().replaceAll(',', '.'));
     return parsed == null
-        ? 'Consultar'
+        ? 'Consultar precio'
         : parsed <= 0
         ? 'Gratis'
         : '\$${parsed.toStringAsFixed(0)}';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isSmallScreen = MediaQuery.of(context).size.width < 400;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cardWidth = constraints.maxWidth;
-        final isWide = cardWidth > 600;
-
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 16,
-                spreadRadius: 2,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => _showEventDetails(context),
-            child:
-                isWide
-                    ? _buildWideCard(theme)
-                    : _buildNormalCard(theme, isSmallScreen),
-          ),
-        );
-      },
-    );
+  // Método para obtener los medios de pago
+  String _getMediosPago() {
+    final mediosPago = _getField('mediosPago', []);
+    if (mediosPago is List && mediosPago.isNotEmpty) {
+      return mediosPago.join(', ');
+    }
+    return 'Efectivo';
   }
 
-  Widget _buildNormalCard(ThemeData theme, bool isSmallScreen) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Stack(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
-              ),
-              child: CachedNetworkImage(
-                imageUrl:
-                    _getField('image', '').isNotEmpty
-                        ? _getField('image')
-                        : 'https://via.placeholder.com/400x200?text=Evento',
-                height: isSmallScreen ? 140 : 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _buildPlaceholder(),
-              ),
+  // Método para mostrar políticas de privacidad
+  void _showPrivacyPolicy(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text(
+              'Políticas de Privacidad',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            _buildFavoriteButton(),
-            _buildImageOverlay(),
-            _buildEventTitle(theme),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailItem(
-                Icons.location_on_outlined,
-                _getField('localidad'),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDetailItem(
-                      Icons.calendar_month_outlined,
-                      _getField('fecha'),
-                    ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'En Fiesta Finder nos comprometemos a proteger tu privacidad. Esta política explica cómo recopilamos, usamos y protegemos tu información personal:',
+                    style: TextStyle(fontSize: 14),
                   ),
-                  const SizedBox(width: 16),
-                  _buildPriceTag(),
+                  SizedBox(height: 12),
+                  Text(
+                    '• Recopilamos información que nos proporcionas al registrarte o crear eventos',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  Text(
+                    '• Utilizamos tu información para mejorar nuestros servicios y personalizar tu experiencia',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  Text(
+                    '• Protegemos tus datos con medidas de seguridad avanzadas',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  Text(
+                    '• No compartimos tu información personal con terceros sin tu consentimiento',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Al utilizar nuestra aplicación, aceptas estas políticas de privacidad.',
+                    style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14),
+                  ),
                 ],
               ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
             ],
           ),
-        ),
-      ],
     );
   }
 
-  Widget _buildWideCard(ThemeData theme) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Flexible(
-          flex: 2,
-          child: ClipRRect(
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(18),
-            ),
-            child: Stack(
-              children: [
-                CachedNetworkImage(
-                  imageUrl:
-                      _getField('image', '').isNotEmpty
-                          ? _getField('image')
-                          : 'https://via.placeholder.com/600x300?text=Evento',
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _buildPlaceholder(),
-                ),
-                _buildFavoriteButton(),
-                _buildImageOverlay(),
-              ],
-            ),
-          ),
-        ),
-        Flexible(
-          flex: 3,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getField('name', 'Evento sin nombre'),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                _buildDetailItem(
-                  Icons.location_on_outlined,
-                  _getField('localidad'),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildDetailItem(
-                      Icons.calendar_month_outlined,
-                      _getField('fecha'),
-                    ),
-                    const Spacer(),
-                    _buildPriceTag(),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_getField('descripcion').length < 100)
-                  Text(
-                    _getField('descripcion'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlaceholder() {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: Colors.grey[200],
-      child: Center(
-        child: Icon(Icons.event, size: 50, color: Colors.grey[400]),
-      ),
-    );
-  }
-
-  Widget _buildFavoriteButton() {
-    return Positioned(
-      top: 12,
-      right: 12,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            // Llamada correcta al callback con el evento
-            onToggleFavorite(event);
-          },
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isFavorite
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              color: isFavorite ? Colors.red[400] : Colors.grey[600],
-              size: 24,
-            ),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 12,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
           ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showEventDetails(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Sección de imagen con título y favoritos
+            _buildImageSection(),
+
+            // Contenido mínimo de la tarjeta (solo tipo y precio)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment
+                        .start, // Cambiado a start para alinear a la izquierda
+                children: [
+                  // Tipo de evento
+                  if (_getField('tipo') != '--')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getCategoryColor(_getField('tipo')),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _getField('tipo'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12, // Tamaño reducido
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(width: 8), // Espacio reducido
+                  // Precio
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ), // Tamaño reducido
+                    decoration: BoxDecoration(
+                      color:
+                          _getPrice() == 'Gratis'
+                              ? Colors.green[50]
+                              : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color:
+                            _getPrice() == 'Gratis'
+                                ? Colors.green[100]!
+                                : Colors.blue[100]!,
+                      ),
+                    ),
+                    child: Text(
+                      _getPrice(),
+                      style: TextStyle(
+                        fontSize: 12, // Tamaño reducido
+                        fontWeight: FontWeight.bold,
+                        color:
+                            _getPrice() == 'Gratis'
+                                ? Colors.green[800]
+                                : Colors.blue[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildImageOverlay() {
-    return Positioned.fill(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black.withOpacity(0.4), Colors.transparent],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventTitle(ThemeData theme) {
-    return Positioned(
-      left: 16,
-      bottom: 16,
-      right: 16,
-      child: Text(
-        _getField('name', 'Evento sin nombre'),
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-
-  Widget _buildDetailItem(IconData icon, String text) {
-    return Row(
+  Widget _buildImageSection() {
+    return Stack(
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Flexible(
+        // Imagen del evento
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: CachedNetworkImage(
+            imageUrl:
+                _getField('image', '').toString().isNotEmpty
+                    ? _getField('image').toString()
+                    : 'https://via.placeholder.com/400x200?text=Evento',
+            height: 200,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorWidget:
+                (_, __, ___) => Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.event, size: 50, color: Colors.grey),
+                ),
+          ),
+        ),
+
+        // Gradiente overlay para mejor contraste del texto
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                stops: const [0.1, 0.5],
+              ),
+            ),
+          ),
+        ),
+
+        // Título superpuesto en la parte inferior de la imagen
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 16,
           child: Text(
-            text,
-            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-            maxLines: 1,
+            _getField('eventName', _getField('name', 'Evento sin nombre')),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              shadows: [
+                Shadow(
+                  offset: Offset(1, 1),
+                  blurRadius: 4,
+                  color: Colors.black,
+                ),
+              ],
+            ),
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),
+
+        // Botón de favorito
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => onToggleFavorite(event),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: isFavorite ? Colors.red : Colors.grey[600],
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildPriceTag() {
-    final price = _getPrice();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: price == 'Gratis' ? Colors.green[50] : Colors.blue[50],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        price,
-        style: TextStyle(
-          color: price == 'Gratis' ? Colors.green[800] : Colors.blue[800],
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'gastrobar':
+        return Colors.orange[800]!;
+      case 'discotecas':
+        return Colors.purple[700]!;
+      case 'cultural':
+        return Colors.teal[700]!;
+      case 'deportivo':
+        return Colors.blue[700]!;
+      default:
+        return Colors.grey[700]!;
+    }
   }
 
   void _showEventDetails(BuildContext context) {
-    final theme = Theme.of(context);
     final isSmallScreen = MediaQuery.of(context).size.width < 600;
 
     showDialog(
@@ -332,7 +329,7 @@ class EventCard extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Sección de imagen
+                    // Imagen
                     Stack(
                       children: [
                         ClipRRect(
@@ -340,14 +337,14 @@ class EventCard extends StatelessWidget {
                             top: Radius.circular(24),
                           ),
                           child: CachedNetworkImage(
-                            imageUrl: _getField('image', ''),
+                            imageUrl: _getField('image', '').toString(),
                             width: double.infinity,
-                            height: isSmallScreen ? 200 : 250,
+                            height: isSmallScreen ? 220 : 280,
                             fit: BoxFit.cover,
                             errorWidget:
                                 (_, __, ___) => Container(
                                   color: Colors.grey[200],
-                                  height: isSmallScreen ? 200 : 250,
+                                  height: isSmallScreen ? 220 : 280,
                                   child: const Icon(
                                     Icons.image_not_supported,
                                     size: 50,
@@ -366,9 +363,7 @@ class EventCard extends StatelessWidget {
                                     ? Icons.favorite_rounded
                                     : Icons.favorite_border_rounded,
                                 color:
-                                    isFavorite
-                                        ? Colors.red[400]
-                                        : Colors.grey[600],
+                                    isFavorite ? Colors.red : Colors.grey[600],
                               ),
                               onPressed: () {
                                 onToggleFavorite(event);
@@ -381,42 +376,32 @@ class EventCard extends StatelessWidget {
                       ],
                     ),
 
-                    // Contenido del diálogo
+                    // Contenido - ORDEN MODIFICADO
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Título y precio
+                          // 1. Nombre del evento y precio a la derecha
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _getField('name', 'Evento sin nombre'),
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    if (_getField('tipo') != '--')
-                                      Chip(
-                                        label: Text(_getField('tipo')),
-                                        backgroundColor: Colors.blue[600],
-                                        labelStyle: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                  ],
+                                child: Text(
+                                  _getField(
+                                    'eventName',
+                                    _getField('name', 'Evento sin nombre'),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 12),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 16,
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
@@ -425,6 +410,12 @@ class EventCard extends StatelessWidget {
                                           ? Colors.green[50]
                                           : Colors.blue[50],
                                   borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color:
+                                        _getPrice() == 'Gratis'
+                                            ? Colors.green[100]!
+                                            : Colors.blue[100]!,
+                                  ),
                                 ),
                                 child: Text(
                                   _getPrice(),
@@ -441,31 +432,37 @@ class EventCard extends StatelessWidget {
                             ],
                           ),
 
+                          const SizedBox(height: 16),
+
+                          // 2. Tipo de evento
+                          if (_getField('tipo') != '--')
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getCategoryColor(_getField('tipo')),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _getField('tipo'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+
                           const SizedBox(height: 24),
 
-                          // Sección de fecha/hora
-                          _buildDetailRow(
-                            icon: Icons.calendar_today,
-                            label: 'Fecha y Hora',
-                            value:
-                                '${_getField('fecha')} • ${_getField('hora', '--')}',
-                          ),
-
-                          // Sección de ubicación
-                          _buildDetailRow(
-                            icon: Icons.location_on,
-                            label: 'Ubicación',
-                            value: _getField('localidad'),
-                          ),
-
-                          // Sección de descripción
-                          const SizedBox(height: 16),
+                          // 3. Descripción del evento (AHORA ARRIBA de fecha/hora)
                           const Text(
                             'Descripción',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey,
+                              color: Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -474,32 +471,187 @@ class EventCard extends StatelessWidget {
                               'descripcion',
                               'No hay descripción disponible',
                             ),
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16, height: 1.5),
                           ),
 
-                          // Botón de acción (opcional)
-                          if (_getField('link') != '--') ...[
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue[600],
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
+                          const SizedBox(height: 24),
+
+                          // 4. Fecha y hora (AHORA ABAJO de la descripción)
+                          const Text(
+                            'Fecha y Hora',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today_rounded,
+                                size: 20,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getField('fecha'),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(width: 16),
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 20,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getField('hora', 'Por confirmar'),
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // 5. Ubicación exacta
+                          const Text(
+                            'Ubicación',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_rounded,
+                                size: 20,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _getField(
+                                    'direccion',
+                                    _getField(
+                                      'localidad',
+                                      'Ubicación no especificada',
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                  style: const TextStyle(fontSize: 16),
                                 ),
-                                onPressed: () {
-                                  // Abrir enlace del evento
-                                },
-                                child: const Text(
-                                  'VER MÁS DETALLES',
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // 6. Parqueadero y accesibilidad
+                          const Text(
+                            'Servicios',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // Parqueadero
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.local_parking_rounded,
+                                      size: 30,
+                                      color:
+                                          _getField('parqueadero', false)
+                                              ? Colors.green
+                                              : Colors.grey,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _getField('parqueadero', false)
+                                          ? 'Con parqueadero'
+                                          : 'Sin parqueadero',
+                                      style: TextStyle(
+                                        color:
+                                            _getField('parqueadero', false)
+                                                ? Colors.green
+                                                : Colors.grey,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Accesibilidad
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.accessible_rounded,
+                                      size: 30,
+                                      color:
+                                          _getField('accesibilidad', false)
+                                              ? Colors.green
+                                              : Colors.grey,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _getField('accesibilidad', false)
+                                          ? 'Accesible'
+                                          : 'No accesible',
+                                      style: TextStyle(
+                                        color:
+                                            _getField('accesibilidad', false)
+                                                ? Colors.green
+                                                : Colors.grey,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // 7. Medios de pago (solo si no es gratis)
+                          if (_getField('esGratis', false) == false) ...[
+                            const Text(
+                              'Medios de pago aceptados',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _getMediosPago(),
+                              style: const TextStyle(fontSize: 16, height: 1.5),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Políticas de privacidad (NUEVO)
+                            GestureDetector(
+                              onTap: () => _showPrivacyPolicy(context),
+                              child: const Center(
+                                child: Text(
+                                  'Políticas de Privacidad',
                                   style: TextStyle(
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    decoration: TextDecoration.underline,
+                                    color: Colors.blue,
                                   ),
                                 ),
                               ),
@@ -513,79 +665,6 @@ class EventCard extends StatelessWidget {
               ),
             ),
           ),
-    );
-  }
-
-  // Método auxiliar para construir filas de detalles
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Colors.blue[600]),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDialogItem(
-    String label,
-    String text, {
-    bool isHighlighted = false,
-    bool isMultiline = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 16,
-              color: isHighlighted ? Colors.green[600] : Colors.black,
-              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-            ),
-            maxLines: isMultiline ? null : 2,
-            overflow: isMultiline ? null : TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 }
