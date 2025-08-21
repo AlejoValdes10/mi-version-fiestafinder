@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'agregar_evento_screen.dart';
+import 'dart:ui';
+
 
 // Widgets personalizados
 import 'event_card.dart';
@@ -62,7 +64,7 @@ String selectedType = "Todos";
 
   Future<void> _loadUserData() async {
     try {
-      DocumentSnapshot doc =
+      DocumentSnapshot doc = 
           await FirebaseFirestore.instance
               .collection('usuarios')
               .doc(widget.user.uid)
@@ -319,45 +321,76 @@ String selectedType = "Todos";
         return status;
     }
   }
-
-  Widget _getStatusIcon(String status) {
-    switch (status) {
-      case 'approved':
-        return Icon(Icons.check_circle, color: Colors.green, size: 40);
-      case 'rejected':
-        return Icon(Icons.cancel, color: Colors.red, size: 40);
-      case 'pending':
-        return Icon(Icons.pending, color: Colors.orange, size: 40);
-      default:
-        return Icon(Icons.help_outline, color: Colors.grey, size: 40);
-    }
-  }
-
   // Mostrar panel de administración
-  void _showAdminPanel() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("Panel de Administración"),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: DefaultTabController(
-                length: 4,
+ void _showAdminPanel() {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) {
+      return DefaultTabController( // ✅ Aquí va el TabController
+        length: 4,
+        child: DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.85,
+          minChildSize: 0.6,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const TabBar(
-                      isScrollable: true,
-                      tabs: [
-                        Tab(text: "Pendientes"),
-                        Tab(text: "Aprobados"),
-                        Tab(text: "Rechazados"),
-                        Tab(text: "Todos"),
-                      ],
+                    // Handle
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    SizedBox(
-                      height: 400,
+                    // Título
+                    const Text(
+                      "Panel de Administración",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Tabs
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: TabBar(
+                        isScrollable: true,
+                        labelColor: Colors.black,
+                        unselectedLabelColor: Colors.grey[700],
+                        indicator: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        tabs: const [
+                          Tab(text: "Pendientes"),
+                          Tab(text: "Aprobados"),
+                          Tab(text: "Rechazados"),
+                          Tab(text: "Todos"),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Contenido de Tabs
+                    Expanded(
                       child: TabBarView(
                         children: [
                           _buildAdminEventList('pending'),
@@ -370,128 +403,278 @@ String selectedType = "Todos";
                   ],
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cerrar"),
-              ),
-            ],
-          ),
-    );
-  }
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
+
 
   // Construir lista de eventos para administrador
   Widget _buildAdminEventList(String status) {
-    Query query;
+  final bool isAdmin = true;
 
-    if (status == 'all') {
-      query = FirebaseFirestore.instance
-          .collection('eventos')
-          .orderBy('fechaTimestamp', descending: true);
-    } else {
-      query = FirebaseFirestore.instance
-          .collection('eventos')
-          .where('status', isEqualTo: status)
-          .orderBy('fechaTimestamp', descending: true);
-    }
+  Query query;
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  if (status == 'all') {
+    query = FirebaseFirestore.instance
+        .collection('eventos')
+        .orderBy('fechaTimestamp', descending: true);
+  } else {
+    query = FirebaseFirestore.instance
+        .collection('eventos')
+        .where('status', isEqualTo: status)
+        .orderBy('fechaTimestamp', descending: true);
+  }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.event_available, size: 50, color: Colors.grey),
-                const SizedBox(height: 10),
-                Text("No hay eventos ${_getStatusText(status)}"),
-              ],
-            ),
-          );
-        }
+  return StreamBuilder<QuerySnapshot>(
+    stream: query.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
 
-        return ListView.builder(
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.event_available, size: 50, color: Colors.grey),
+              const SizedBox(height: 10),
+              Text("No hay eventos ${_getStatusText(status)}"),
+            ],
+          ),
+        );
+      }
 
-            return Card(
-              margin: const EdgeInsets.all(8),
-              child: ListTile(
-                // Mostrar imagen del evento en lugar del icono de estado
-                leading:
-                    data['image'] != null && data['image'].isNotEmpty
-                        ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            data['image'],
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder:
-                                (_, __, ___) => Icon(Icons.event, size: 50),
-                          ),
-                        )
-                        : Icon(Icons.event, size: 50),
-                title: Row(
-                  children: [
-                    // Icono de estado al lado del nombre
-                    if (data['status'] == 'approved')
-                      Icon(Icons.check_circle, color: Colors.green, size: 24),
-                    if (data['status'] == 'rejected')
-                      Icon(Icons.cancel, color: Colors.red, size: 24),
-                    if (data['status'] == 'pending')
-                      Icon(Icons.pending, color: Colors.orange, size: 24),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        data['eventName'] ?? 'Evento sin nombre',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Estado: ${_getStatusText(data['status'])}"),
-                    Text("Fecha: ${_formatDate(data['fechaTimestamp'])}"),
-                    if (data['status'] == 'rejected' &&
-                        data['rejectionReason'] != null)
-                      Text("Razón: ${data['rejectionReason']}"),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (data['status'] == 'pending')
-                      IconButton(
-                        icon: Icon(Icons.check, color: Colors.green),
-                        onPressed:
-                            () => _approveEvent(doc.id, data['creatorId']),
-                      ),
-                    if (data['status'] == 'pending')
-                      IconButton(
-                        icon: Icon(Icons.close, color: Colors.red),
-                        onPressed:
-                            () => _rejectEvent(doc.id, data['creatorId']),
-                      ),
-                  ],
+      return ListView.builder(
+        itemCount: snapshot.data!.docs.length,
+        itemBuilder: (context, index) {
+          final doc = snapshot.data!.docs[index];
+          final data = doc.data() as Map<String, dynamic>;
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border(
+                left: BorderSide(
+                  color: _getColorForStatus(data['status'] ?? ''),
+                  width: 6,
                 ),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Imagen del evento
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: data['image'] != null && data['image'].isNotEmpty
+                        ? Image.network(
+                            data['image'],
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(Icons.event, size: 60),
+                          )
+                        : Icon(Icons.event, size: 60),
+                  ),
+
+                  const SizedBox(width: 14),
+
+                  // Información del evento
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Nombre + icono de estado
+                        Row(
+                          children: [
+                            Icon(
+                              data['status'] == 'approved'
+                                  ? Icons.check_circle
+                                  : data['status'] == 'rejected'
+                                      ? Icons.cancel
+                                      : Icons.pending,
+                              size: 18,
+                              color: _getColorForStatus(data['status']),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                data['eventName'] ?? 'Evento sin nombre',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text("Estado: ${_getStatusText(data['status'])}",
+                            style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        Text("Fecha: ${_formatDate(data['fechaTimestamp'])}",
+                            style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        if (data['status'] == 'rejected' &&
+                            data['rejectionReason'] != null)
+                          Text("Razón: ${data['rejectionReason']}",
+                              style: TextStyle(fontSize: 13, color: Colors.red[300])),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // Acciones
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Tooltip(
+                        message: 'Ver detalles',
+                        child: IconButton(
+                          icon: Icon(Icons.info_outline, color: Colors.blueAccent),
+                          onPressed: () => _showEventDetailsAdmin(data),
+                        ),
+                      ),
+                      if (data['status'] == 'pending') ...[
+                        Tooltip(
+                          message: 'Aprobar',
+                          child: IconButton(
+                            icon: Icon(Icons.check, color: Colors.green),
+                            onPressed: () => _approveEvent(doc.id, data['creatorId']),
+                          ),
+                        ),
+                        Tooltip(
+                          message: 'Rechazar',
+                          child: IconButton(
+                            icon: Icon(Icons.close, color: Colors.red),
+                            onPressed: () => _rejectEvent(doc.id, data['creatorId']),
+                          ),
+                        ),
+                      ],
+                      if (isAdmin)
+                        Tooltip(
+                          message: 'Eliminar',
+                          child: IconButton(
+                            icon: Icon(Icons.delete_outline, color: Colors.grey),
+                            onPressed: () => _confirmDeleteEvent(doc.id),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+  
+
+void _showEventDetailsAdmin(Map<String, dynamic> data) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text(data['eventName'] ?? 'Evento sin nombre'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (data['image'] != null &&
+                    data['image'].toString().isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      data['image'],
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Icon(Icons.event, size: 100),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Text(
+                  "Estado: ${_getStatusText(data['status'] ?? '')}",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text("Fecha: ${_formatDate(data['fechaTimestamp'])}"),
+                const SizedBox(height: 6),
+                if ((data['status'] ?? '') == 'rejected' &&
+                    (data['rejectionReason'] ?? '').toString().isNotEmpty)
+                  Text("Razón de rechazo: ${data['rejectionReason']}"),
+                const SizedBox(height: 6),
+                if ((data['creatorId'] ?? '').toString().isNotEmpty)
+                  Text("ID del creador: ${data['creatorId']}"),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cerrar"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
+
+  void _confirmDeleteEvent(String eventId) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("Eliminar evento"),
+      content: Text("¿Estás seguro de que quieres eliminar este evento? Esta acción no se puede deshacer."),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("Cancelar"),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            await FirebaseFirestore.instance
+                .collection('eventos')
+                .doc(eventId)
+                .delete();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Evento eliminado.")),
             );
           },
-        );
-      },
-    );
-  }
+          child: Text("Eliminar", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
+
 
   // Mantén solo una versión de este método (elimina la duplicada)
   Future<void> _notifyUser(String userId, String title, String message) async {
@@ -818,15 +1001,18 @@ String selectedType = "Todos";
   }
 
   Color _getColorForStatus(String status) {
-    switch (status) {
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
+  switch (status) {
+    case 'approved':
+      return Colors.green;
+    case 'rejected':
+      return Colors.red;
+    case 'pending':
+      return Colors.orange;
+    default:
+      return Colors.grey;
   }
+}
+
   // Confirmar cierre de sesión
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
