@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class EventCard extends StatelessWidget {
   final Map<String, dynamic> event;
@@ -15,21 +15,23 @@ class EventCard extends StatelessWidget {
     required this.onToggleFavorite,
   });
 
-  // Método auxiliar para obtener campos con valor por defecto
   dynamic _getField(String key, [dynamic defaultValue = '--']) {
-    final value = event[key];
-    return (value != null && value.toString().trim().isNotEmpty)
-        ? value
-        : defaultValue;
-  }
+  final value = event[key];
+  if (value == null) return defaultValue;
+  if (value is String && value.trim().isEmpty) return defaultValue;
+  return value;
+}
 
-  // Método para obtener el precio formateado
+
   String _getPrice() {
     final bool esGratis = _getField('esGratis', false);
     if (esGratis) return 'Gratis';
 
-    final price = _getField('costo');
-    if (price == null) return 'Consultar precio';
+    final price = _getField('costo', null);
+
+    if (price == null || price.toString().trim().isEmpty) {
+      return 'Consultar precio';
+    }
 
     if (price is num) {
       return price <= 0 ? 'Gratis' : '\$${price.toStringAsFixed(0)}';
@@ -39,254 +41,211 @@ class EventCard extends StatelessWidget {
     return parsed == null
         ? 'Consultar precio'
         : parsed <= 0
-        ? 'Gratis'
-        : '\$${parsed.toStringAsFixed(0)}';
+            ? 'Gratis'
+            : '\$${parsed.toStringAsFixed(0)}';
   }
 
-  // Método para obtener los medios de pago
-  String _getMediosPago() {
-    final mediosPago = _getField('mediosPago', []);
-    if (mediosPago is List && mediosPago.isNotEmpty) {
-      return mediosPago.join(', ');
+  String _getCapacidad() {
+    final tieneCapacidad = _getField('tieneCapacidad', false);
+    final capacidad = _getField('capacidad', 0);
+    if (tieneCapacidad && capacidad > 0) {
+      return "$capacidad personas";
     }
-    return 'Efectivo';
-  }
-
-  // Método para mostrar políticas de privacidad
-  void _showPrivacyPolicy(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text(
-              'Políticas de Privacidad',
-              style: TextStyle(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'En Fiesta Finder nos comprometemos a proteger tu privacidad. Esta política explica cómo recopilamos, usamos y protegemos tu información personal:',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    '• Recopilamos información que nos proporcionas al registrarte o crear eventos',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  Text(
-                    '• Utilizamos tu información para mejorar nuestros servicios y personalizar tu experiencia',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  Text(
-                    '• Protegemos tus datos con medidas de seguridad avanzadas',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  Text(
-                    '• No compartimos tu información personal con terceros sin tu consentimiento',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Al utilizar nuestra aplicación, aceptas estas políticas de privacidad.',
-                    style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          ),
-    );
+    return "Ilimitado";
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 12,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
+Widget build(BuildContext context) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 12,
+          spreadRadius: 2,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _showEventDetails(context),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // 👈 deja que el alto se ajuste al contenido
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildImageSection(), // la imagen arriba
+          
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // 👈 también aquí
+              children: [
+                Text(
+                  _getField('eventName', _getField('name', 'Evento sin nombre')),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: 6),
+
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        _getField('direccion', _getField('localidad', 'Ubicación no especificada')),
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                // 📌 Fecha en una fila
+Row(
+  children: [
+    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+    const SizedBox(width: 4),
+    Expanded(
+      child: Text(
+        _getField('fecha', 'Por definir'),
+        style: const TextStyle(fontSize: 14),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ],
+),
+
+const SizedBox(height: 6),
+
+// 📌 Capacidad en otra fila
+Row(
+  children: [
+    Icon(Icons.people, size: 16, color: Colors.grey[600]),
+    const SizedBox(width: 4),
+    Expanded(
+      child: Text(
+        _getCapacidad(),
+        style: const TextStyle(fontSize: 14),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis, // 🔹 controla "Ilimitado"
+      ),
+    ),
+  ],
+),
+
+
+
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    if (_getField('tipo') != '--')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getCategoryColor(_getField('tipo')),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getField('tipo'),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+
+                    const SizedBox(width: 8),
+                    Expanded(
+  child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: _getPrice() == 'Gratis' ? Colors.green[50] : Colors.blue[50],
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: _getPrice() == 'Gratis' ? Colors.green[100]! : Colors.blue[100]!,
+      ),
+    ),
+    child: Text(
+      _getPrice(),
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: _getPrice() == 'Gratis' ? Colors.green[800] : Colors.blue[800],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis, // 👈 evita overflow en números largos
+    ),
+  ),
+),
+
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => _showEventDetails(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Sección de imagen con título y favoritos
-            _buildImageSection(),
+    ),
+  );
+}
 
-            // Contenido mínimo de la tarjeta (solo tipo y precio)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment
-                        .start, // Cambiado a start para alinear a la izquierda
-                children: [
-                  // Tipo de evento
-                  if (_getField('tipo') != '--')
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getCategoryColor(_getField('tipo')),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _getField('tipo'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12, // Tamaño reducido
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(width: 8), // Espacio reducido
-                  // Precio
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ), // Tamaño reducido
-                    decoration: BoxDecoration(
-                      color:
-                          _getPrice() == 'Gratis'
-                              ? Colors.green[50]
-                              : Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color:
-                            _getPrice() == 'Gratis'
-                                ? Colors.green[100]!
-                                : Colors.blue[100]!,
-                      ),
-                    ),
-                    child: Text(
-                      _getPrice(),
-                      style: TextStyle(
-                        fontSize: 12, // Tamaño reducido
-                        fontWeight: FontWeight.bold,
-                        color:
-                            _getPrice() == 'Gratis'
-                                ? Colors.green[800]
-                                : Colors.blue[800],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildImageSection() {
     return Stack(
       children: [
-        // Imagen del evento
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: CachedNetworkImage(
-            imageUrl:
-                _getField('image', '').toString().isNotEmpty
-                    ? _getField('image').toString()
-                    : 'https://via.placeholder.com/400x200?text=Evento',
+            imageUrl: _getField('image', '').toString().isNotEmpty
+                ? _getField('image').toString()
+                : 'https://via.placeholder.com/400x200?text=Evento',
             height: 200,
             width: double.infinity,
             fit: BoxFit.cover,
-            errorWidget:
-                (_, __, ___) => Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.event, size: 50, color: Colors.grey),
-                ),
           ),
         ),
 
-        // Gradiente overlay para mejor contraste del texto
+        // sombreado
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                 stops: const [0.1, 0.5],
               ),
             ),
           ),
         ),
 
-        // Título superpuesto en la parte inferior de la imagen
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 16,
-          child: Text(
-            _getField('eventName', _getField('name', 'Evento sin nombre')),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  offset: Offset(1, 1),
-                  blurRadius: 4,
-                  color: Colors.black,
-                ),
-              ],
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-
-        // Botón de favorito
         Positioned(
           top: 12,
           right: 12,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => onToggleFavorite(event),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isFavorite
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
-                  color: isFavorite ? Colors.red : Colors.grey[600],
-                  size: 24,
-                ),
+          child: InkWell(
+            onTap: () => onToggleFavorite(event),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.red : Colors.grey[600],
               ),
             ),
           ),
@@ -310,361 +269,218 @@ class EventCard extends StatelessWidget {
     }
   }
 
-  void _showEventDetails(BuildContext context) {
-    final isSmallScreen = MediaQuery.of(context).size.width < 600;
-
-    showDialog(
+ void _showEventDetails(BuildContext context) {
+    final imageUrl = _getField('image', _getField('imagen', '')).toString();
+    showCupertinoModalPopup(
       context: context,
-      builder:
-          (context) => Dialog(
-            insetPadding: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: isSmallScreen ? double.infinity : 600,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Imagen
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
+      builder: (context) => CupertinoPopupSurface(
+        isSurfacePainted: true,
+        child: Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+          child: SafeArea(
+            top: false,
+            child: Material(
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // top grab handle
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Imagen grande (aspectRatio para que no se estire ni se recorte extra)
+                  if (imageUrl.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
                           child: CachedNetworkImage(
-                            imageUrl: _getField('image', '').toString(),
-                            width: double.infinity,
-                            height: isSmallScreen ? 220 : 280,
-                            fit: BoxFit.cover,
-                            errorWidget:
-                                (_, __, ___) => Container(
-                                  color: Colors.grey[200],
-                                  height: isSmallScreen ? 220 : 280,
-                                  child: const Icon(
-                                    Icons.image_not_supported,
-                                    size: 50,
-                                  ),
-                                ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 16,
-                          right: 16,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            child: IconButton(
-                              icon: Icon(
-                                isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color:
-                                    isFavorite ? Colors.red : Colors.grey[600],
-                              ),
-                              onPressed: () {
-                                onToggleFavorite(event);
-                                Navigator.of(context).pop();
-                                _showEventDetails(context);
-                              },
+                            imageUrl: imageUrl,
+                            imageBuilder: (context, imageProvider) => Image(
+                              image: imageProvider,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
+                            ),
+                            placeholder: (c, u) => Container(color: Colors.transparent),
+                            errorWidget: (c, u, e) => Container(
+                              color: Colors.grey[200],
+                              child: const Center(child: Icon(Icons.broken_image)),
                             ),
                           ),
                         ),
-                      ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: Container(
+                        height: 190,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFF7F9FB), Color(0xFFEFF3F6)],
+                          ),
+                          borderRadius: BorderRadius.all(Radius.circular(14)),
+                        ),
+                      ),
                     ),
 
-                    // Contenido - ORDEN MODIFICADO
-                    Padding(
-                      padding: const EdgeInsets.all(24),
+                  const SizedBox(height: 16),
+
+                  // Contenido scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 1. Nombre del evento y precio a la derecha
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _getField(
-                                    'eventName',
-                                    _getField('name', 'Evento sin nombre'),
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      _getPrice() == 'Gratis'
-                                          ? Colors.green[50]
-                                          : Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color:
-                                        _getPrice() == 'Gratis'
-                                            ? Colors.green[100]!
-                                            : Colors.blue[100]!,
-                                  ),
-                                ),
-                                child: Text(
-                                  _getPrice(),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        _getPrice() == 'Gratis'
-                                            ? Colors.green[800]
-                                            : Colors.blue[800],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // 2. Tipo de evento
-                          if (_getField('tipo') != '--')
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getCategoryColor(_getField('tipo')),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _getField('tipo'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-
-                          const SizedBox(height: 24),
-
-                          // 3. Descripción del evento (AHORA ARRIBA de fecha/hora)
-                          const Text(
-                            'Descripción',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
                           Text(
-                            _getField(
-                              'descripcion',
-                              'No hay descripción disponible',
-                            ),
-                            style: const TextStyle(fontSize: 16, height: 1.5),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // 4. Fecha y hora (AHORA ABAJO de la descripción)
-                          const Text(
-                            'Fecha y Hora',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                            _getField('eventName', _getField('name', 'Evento sin nombre')).toString(),
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 8),
+
                           Row(
                             children: [
-                              Icon(
-                                Icons.calendar_today_rounded,
-                                size: 20,
-                                color: Colors.grey[600],
-                              ),
+                              const Icon(CupertinoIcons.calendar, size: 18),
                               const SizedBox(width: 8),
-                              Text(
-                                _getField('fecha'),
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              const SizedBox(width: 16),
-                              Icon(
-                                Icons.access_time_rounded,
-                                size: 20,
-                                color: Colors.grey[600],
-                              ),
+                              Text(_getField('fecha', 'Por definir').toString(), style: const TextStyle(fontSize: 15)),
+                              const SizedBox(width: 14),
+                              const Icon(CupertinoIcons.time, size: 18),
                               const SizedBox(width: 8),
-                              Text(
-                                _getField('hora', 'Por confirmar'),
-                                style: const TextStyle(fontSize: 16),
-                              ),
+                              Text(_getField('hora', 'Por confirmar').toString(), style: const TextStyle(fontSize: 15)),
                             ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // 5. Ubicación exacta
-                          const Text(
-                            'Ubicación',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_rounded,
-                                size: 20,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _getField(
-                                    'direccion',
-                                    _getField(
-                                      'localidad',
-                                      'Ubicación no especificada',
-                                    ),
-                                  ),
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // 6. Parqueadero y accesibilidad
-                          const Text(
-                            'Servicios',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
                           ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              // Parqueadero
+                              const Icon(CupertinoIcons.location, size: 18),
+                              const SizedBox(width: 8),
                               Expanded(
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.local_parking_rounded,
-                                      size: 30,
-                                      color:
-                                          _getField('parqueadero', false)
-                                              ? Colors.green
-                                              : Colors.grey,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getField('parqueadero', false)
-                                          ? 'Con parqueadero'
-                                          : 'Sin parqueadero',
-                                      style: TextStyle(
-                                        color:
-                                            _getField('parqueadero', false)
-                                                ? Colors.green
-                                                : Colors.grey,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+  child: Text(
+    _getField('direccion', _getField('address', 'Ubicación no disponible')).toString(),
+    style: const TextStyle(fontSize: 15),
+  ),
+),
 
-                              // Accesibilidad
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.accessible_rounded,
-                                      size: 30,
-                                      color:
-                                          _getField('accesibilidad', false)
-                                              ? Colors.green
-                                              : Colors.grey,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getField('accesibilidad', false)
-                                          ? 'Accesible'
-                                          : 'No accesible',
-                                      style: TextStyle(
-                                        color:
-                                            _getField('accesibilidad', false)
-                                                ? Colors.green
-                                                : Colors.grey,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
+                          const SizedBox(height: 16),
 
-                          const SizedBox(height: 24),
+                          // acciones rápidas (compartir, ruta, guardar)
+                          Row(
+                            children: [
+                              _actionButton(context, CupertinoIcons.share, "Compartir", () {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compartir (placeholder)')));
+                              }),
+                              const SizedBox(width: 10),
+                              _actionButton(context, CupertinoIcons.location_solid, "Ruta", () {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Abrir mapa (placeholder)')));
+                              }),
+                              const SizedBox(width: 10),
+                              _actionButton(context, isFavorite ? CupertinoIcons.heart_solid : CupertinoIcons.heart, "Favorito", () {
+                                onToggleFavorite(event);
+                              }),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          const Divider(),
+                          const SizedBox(height: 12),
 
-                          // 7. Medios de pago (solo si no es gratis)
-                          if (_getField('esGratis', false) == false) ...[
-                            const Text(
-                              'Medios de pago aceptados',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
+                          // Descripción
+                          const Text("Descripción", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          Text(
+                            _getField('descripcion', 'No hay descripción').toString(),
+                            style: const TextStyle(fontSize: 15, height: 1.45, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Información extra (uso FaIcon para accesibilidad)
+                          _detailRow(Icon(CupertinoIcons.person_2, size: 18, color: Colors.black54), "Capacidad", _getCapacidad()),
+                          const SizedBox(height: 8),
+                          _detailRow(Icon(CupertinoIcons.money_dollar, size: 18, color: Colors.black54), "Costo", _getPrice()),
+                          const SizedBox(height: 8),
+                          _detailRow(Icon(CupertinoIcons.square_list, size: 18, color: Colors.black54), "Tipo", _getField('tipo', 'No definido').toString()),
+                          const SizedBox(height: 8),
+                          // accesibilidad - icono de FontAwesome
+                          _detailRow(const FaIcon(FontAwesomeIcons.wheelchair, size: 18, color: Colors.black54), "Accesibilidad", _getField('accesibilidad', false) ? 'Sí' : 'No'),
+                          const SizedBox(height: 8),
+                          _detailRow(Icon(CupertinoIcons.car_detailed, size: 18, color: Colors.black54), "Parqueadero", _getField('parqueadero', false) ? 'Sí' : 'No'),
+                          const SizedBox(height: 30),
+
+                          // botón de acción principal (ej: reservar / comprar)
+                          SizedBox(
+                            width: double.infinity,
+                            child: CupertinoButton.filled(
+                              borderRadius: BorderRadius.circular(12),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Acción principal (placeholder)')));
+                              },
+                              child: Text(_getPrice() == 'Gratis' ? 'Registrar gratis' : 'Comprar / Reservar'),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _getMediosPago(),
-                              style: const TextStyle(fontSize: 16, height: 1.5),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Políticas de privacidad (NUEVO)
-                            GestureDetector(
-                              onTap: () => _showPrivacyPolicy(context),
-                              child: const Center(
-                                child: Text(
-                                  'Políticas de Privacidad',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.underline,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButton(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 20, color: Colors.black87),
+              const SizedBox(height: 6),
+              Text(label, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(Widget iconWidget, String label, String value) {
+    return Row(
+      children: [
+        iconWidget,
+        const SizedBox(width: 10),
+        Text("$label:", style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(value, style: const TextStyle(color: Colors.black87))),
+      ],
     );
   }
 }

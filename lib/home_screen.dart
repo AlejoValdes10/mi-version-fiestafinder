@@ -46,9 +46,9 @@ class HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> filteredEvents = [];
   List<Map<String, dynamic>> favoriteEvents = [];
 
-  String selectedFilter = "Todos";
-String selectedDate = "Todas";
-String selectedType = "Todos";
+ String selectedFilter = "Todos";
+ String selectedDate = "Todos";
+ String selectedType = "Todos";
 
 
   @override
@@ -94,37 +94,65 @@ String selectedType = "Todos";
 
   // Cargar eventos favoritos del usuario
   Future<void> _loadFavorites() async {
-    try {
-      final favoritesSnapshot =
-          await FirebaseFirestore.instance
-              .collection('usuarios')
-              .doc(widget.user.uid)
-              .collection('favoritos')
-              .orderBy('addedAt', descending: true)
-              .get();
+  try {
+    final favoritesSnapshot = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(widget.user.uid)
+        .collection('favoritos')
+        .orderBy('addedAt', descending: true)
+        .get();
 
-      if (mounted) {
-        setState(() {
-          favoriteEvents =
-              favoritesSnapshot.docs.map((doc) {
-                final data = doc.data();
-                return {
-                  'id': doc.id,
-                  'name': data['name'] ?? 'Evento sin nombre',
-                  'image': data['image'] ?? '',
-                  'fecha': data['fecha'] ?? 'Sin fecha',
-                };
-              }).toList();
-          _loadingFavorites = false;
+    final List<Map<String, dynamic>> loadedEvents = [];
+
+    for (final favDoc in favoritesSnapshot.docs) {
+      final eventId = favDoc.id;
+
+      final eventSnapshot = await FirebaseFirestore.instance
+          .collection('eventos')
+          .doc(eventId)
+          .get();
+
+      if (eventSnapshot.exists) {
+        final data = eventSnapshot.data()!;
+        print('✅ Evento encontrado: ${data['eventName']} - Dirección: ${data['direccion']}');
+
+        loadedEvents.add({
+          'id': eventSnapshot.id,
+          'name': data['eventName'] ?? data['name'] ?? 'Evento sin nombre',
+          'image': data['image'] ?? '',
+          'fecha': data['fecha'] ?? 'Sin fecha',
+          'tipo': data['tipo'] ?? 'General',
+          'descripcion': data['descripcion'] ?? '',
+          'direccion': data['direccion'] ?? data['address'] ?? 'Dirección no disponible',
+          'costo': data['costo'],
+          'esGratis': data['esGratis'] ?? false,
+          'tieneCapacidad': data['tieneCapacidad'] ?? false,
+          'capacidad': data['capacidad'] ?? 0,
+          'hora': data['hora'] ?? '',
+          'contacto': data['contacto'] ?? '',
+          'mediosPago': data['mediosPago'] ?? [],
+          'infoPagos': data['infoPagos'] ?? {},
+          // agrega más si necesitas
         });
+      } else {
+        print('⚠️ Evento no encontrado: $eventId');
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadingFavorites = false);
-      }
-      debugPrint("Error cargando favoritos: $e");
     }
+
+    if (mounted) {
+      setState(() {
+        favoriteEvents = loadedEvents;
+        _loadingFavorites = false;
+      });
+    }
+  } catch (e) {
+    if (mounted) {
+      setState(() => _loadingFavorites = false);
+    }
+    debugPrint("❌ Error cargando favoritos: $e");
   }
+}
+
 
   Future<void> _setupEventListeners() async {
   setState(() {
@@ -189,20 +217,28 @@ String selectedType = "Todos";
     query.snapshots().listen(
       (snapshot) {
         if (!mounted) return;
-
+      /// DATOS DE LAS TARJETAS CUANDO DOY CLICK
         final newEvents = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>? ?? {};
           return {
-            'id': doc.id,
-            'name': data['eventName'] ?? 'Evento sin nombre',
-            'image': data['image'] ?? '',
-            'localidad': data['direccion'] ?? 'Ubicación desconocida',
-            'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
-            'tipo': data['tipo'] ?? 'General',
-            'status': data['status'] ?? 'pending',
-            'creatorId': data['creatorId'] ?? '',
-            'descripcion': data['descripcion'] ?? 'Sin descripción',
-          };
+  'id': doc.id,
+  'name': data['eventName'] ?? 'Evento sin nombre',
+  'image': data['image'] ?? '',
+  'localidad': data['direccion'] ?? 'Ubicación desconocida',
+  'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
+  'fechaRaw': data['fecha'] ?? '', // opcional, si usas la fecha en formato original
+  'tipo': data['tipo'] ?? 'General',
+  'status': data['status'] ?? 'pending',
+  'creatorId': data['creatorId'] ?? '',
+  'descripcion': data['descripcion'] ?? 'Sin descripción',
+  'direccion': data['direccion'] ?? data['address'] ?? '',
+  'costo': data['costo'],
+  'esGratis': data['esGratis'] ?? false,
+  'hora': data['hora'] ?? '',
+  'contacto': data['contacto'] ?? '',
+  'zona': data['zona'] ?? '',
+};
+
         }).toList();
 
         if (mounted) {
@@ -251,62 +287,81 @@ String selectedType = "Todos";
 
   setState(() {
     filteredEvents = events.where((event) {
-      final matchesSearch = event["name"]?.toLowerCase().contains(query) ?? false;
-      final matchesLocation = selectedFilter == "Todos" || event["localidad"] == selectedFilter;
-      final matchesDate = selectedDate == "Todas" || event["fecha"] == selectedDate;
-      final matchesType = selectedType == "Todos" || event["tipo"] == selectedType;
+      final nombre = (event['eventName'] ?? event['name'] ?? '')
+          .toString()
+          .toLowerCase();
+      final localidad = (event['localidad'] ?? 'Todos').toString();
+      final entrada = (event['costo'] != null && event['costo'] > 0)
+          ? "De pago"
+          : "Gratis";
+      final tipo = (event['tipo'] ?? "Todos").toString();
 
-      if (tipoPersona == "Administrador") {
-        return matchesSearch && matchesLocation && matchesDate && matchesType;
-      } else if (tipoPersona == "Empresario") {
-        final isMyEvent = event["creatorId"] == widget.user.uid;
-        return matchesSearch && matchesLocation && matchesDate && matchesType && (isMyEvent || event["status"] == "approved");
-      } else {
-        // Usuario normal
-        return matchesSearch && matchesLocation && matchesDate && matchesType && event["status"] == "approved";
-      }
+      // Validaciones de filtros
+      final matchSearch = nombre.contains(query);
+      final matchLocalidad =
+          (selectedFilter == "Todos" || localidad == selectedFilter);
+      final matchEntrada =
+          (selectedDate == "Todos" || entrada == selectedDate);
+      final matchTipo = (selectedType == "Todos" || tipo == selectedType);
+
+      return matchSearch && matchLocalidad && matchEntrada && matchTipo;
     }).toList();
   });
 }
 
 
-  // Manejar favoritos
-  Future<void> _toggleFavorite(Map<String, dynamic> event) async {
-    try {
-      final userId = widget.user.uid;
-      final eventId = event['id'];
-      final favoritesRef = FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(userId)
-          .collection('favoritos');
+  // tarjeta favoritos
+Future<void> _toggleFavorite(Map<String, dynamic> event) async {
+  try {
+    final userId = widget.user.uid;
+    final eventId = event['id'];
 
-      final doc = await favoritesRef.doc(eventId).get();
+    final favoritesRef = FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(userId)
+        .collection('favoritos');
 
-      if (doc.exists) {
-        await favoritesRef.doc(eventId).delete();
-        _showSuccessFeedback("Removido de favoritos");
-      } else {
-        final favoriteData = {
-          'id': eventId,
-          'name': event['name'],
-          'image': event['image'],
-          'fecha': event['fecha'],
-          'addedAt': FieldValue.serverTimestamp(),
-        };
-        await favoritesRef.doc(eventId).set(favoriteData);
-        _showSuccessFeedback("Agregado a favoritos");
-      }
+    final doc = await favoritesRef.doc(eventId).get();
 
-      // Forzar recarga de favoritos
-      await _loadFavorites();
-    } catch (e) {
-      _showErrorSnackBar("Error: ${e.toString()}");
-      debugPrint("Error en favoritos: $e");
+    if (doc.exists) {
+      // 🔴 Si ya está en favoritos, lo eliminamos
+      await favoritesRef.doc(eventId).delete();
+      _showSuccessFeedback("Removido de favoritos");
+    } else {
+      // 🟢 Si no está, lo agregamos con toda la info
+      final favoriteData = {
+        'id': eventId,
+        'name': event['name'] ?? event['eventName'] ?? 'Evento sin nombre',
+        'image': event['image'] ?? '',
+        'localidad': event['direccion'] ?? 'Ubicación desconocida',
+        'fecha': _formatDate(event['fechaTimestamp'] ?? event['fecha']),
+        'fechaRaw': event['fecha'] ?? '', // formato original opcional
+        'tipo': event['tipo'] ?? 'General',
+        'status': event['status'] ?? 'pending',
+        'creatorId': event['creatorId'] ?? '',
+        'descripcion': event['descripcion'] ?? 'Sin descripción',
+        'costo': event['costo'],
+        'esGratis': event['esGratis'] ?? false,
+        'hora': event['hora'] ?? '',
+        'contacto': event['contacto'] ?? '',
+        'zona': event['zona'] ?? '',
+        'addedAt': FieldValue.serverTimestamp(), // cuándo se agregó a favoritos
+      };
+
+      await favoritesRef.doc(eventId).set(favoriteData);
+      _showSuccessFeedback("Agregado a favoritos");
     }
+
+    // 🔄 Recarga la lista local de favoritos
+    await _loadFavorites();
+  } catch (e) {
+    _showErrorSnackBar("Error: ${e.toString()}");
+    debugPrint("Error en favoritos: $e");
   }
+}
+
 
   // Mostrar panel de administración
-  // Agrega este método en tu clase HomeScreenState
   String _getStatusText(String status) {
     switch (status) {
       case 'approved':
@@ -451,10 +506,10 @@ String selectedType = "Todos";
       }
 
       return ListView.builder(
-        itemCount: snapshot.data!.docs.length,
-        itemBuilder: (context, index) {
-          final doc = snapshot.data!.docs[index];
-          final data = doc.data() as Map<String, dynamic>;
+  itemCount: snapshot.data!.docs.length,
+  itemBuilder: (context, index) {
+    final doc = snapshot.data!.docs[index];
+    final data = doc.data() as Map<String, dynamic>;
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -588,7 +643,7 @@ String selectedType = "Todos";
   );
 }
   
-
+//Muestra los eventos en el panel de admin
 void _showEventDetailsAdmin(Map<String, dynamic> data) {
   showDialog(
     context: context,
@@ -891,27 +946,30 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            data['eventName'] ?? 'Evento sin nombre',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Chip(
-                          label: Text(
-                            _getStatusText(status),
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                          backgroundColor: _getColorForStatus(status),
-                        ),
-                      ],
-                    ),
+                    Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text(
+      data['eventName'] ?? 'Evento sin nombre',
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    SizedBox(height: 4),
+    Align(
+      alignment: Alignment.centerRight,
+      child: Chip(
+        label: Text(
+          _getStatusText(status),
+          style: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+        backgroundColor: _getColorForStatus(status),
+      ),
+    ),
+  ],
+),
+
                     SizedBox(height: 8),
                     if (data['descripcion'] != null)
                       Text(
@@ -1300,47 +1358,57 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
       ),
     );
   }
-
+//FILTRO BUSCAR
   Widget _buildSearchAndFilter() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar eventos...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        // 🔍 Campo de búsqueda
+        Expanded(
+          child: TextField(
+            controller: searchController,
+            onChanged: (value) {
+              // filtra en tiempo real cuando el usuario escribe
+              _filterEvents();
+            },
+            decoration: InputDecoration(
+              hintText: 'Buscar eventos...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed:
-                () => FilterModal.show(
-                  context: context,
-                  currentFilter: selectedFilter,
-                  currentDate: selectedDate,
-                  currentType: selectedType,
-                  onApply: (filter, date, type) {
-                    setState(() {
-                      selectedFilter = filter;
-                      selectedDate = date;
-                      selectedType = type;
-                    });
-                    _filterEvents();
-                  },
-                ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+
+        const SizedBox(width: 8),
+
+        // ⚙️ Botón de filtros
+        IconButton(
+          icon: const Icon(Icons.filter_list),
+          onPressed: () {
+            FilterModal.show(
+              context: context,
+              currentFilter: selectedFilter,
+              currentDate: selectedDate,
+              currentType: selectedType,
+              onApply: (filter, date, type) {
+                setState(() {
+                  selectedFilter = filter;
+                  selectedDate = date;
+                  selectedType = type;
+                });
+                _filterEvents();
+              },
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
 
   Widget _buildCurrentScreen() {
     if (!_initialDataLoaded) {
@@ -1410,103 +1478,108 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
     );
   }
 
-  Widget _buildEventsGrid() {
-    if (_loadingEvents) {
-      return Center(child: CircularProgressIndicator());
-    }
-
-    if (filteredEvents.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.event_available, size: 50, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              events.isEmpty
-                  ? "No hay eventos disponibles"
-                  : "No hay coincidencias con los filtros",
-              style: TextStyle(fontSize: 18),
-            ),
-            if (events.isEmpty) ...[
-              SizedBox(height: 8),
-              TextButton(
-                onPressed: _setupEventListeners,
-                child: Text("Recargar eventos"),
-              ),
-            ],
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: EdgeInsets.all(8.0),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: filteredEvents.length,
-      itemBuilder: (context, index) {
-        final event = filteredEvents[index];
-        return EventCard(
-          event: event,
-          isFavorite: favoriteEvents.any((e) => e['id'] == event['id']),
-          onToggleFavorite: _toggleFavorite,
-        );
-      },
-    );
+ Widget _buildEventsGrid() {
+  if (_loadingEvents) {
+    return const Center(child: CircularProgressIndicator());
   }
 
-  Widget _buildFavoritesScreen() {
-    if (_loadingFavorites) {
-      return Center(child: CircularProgressIndicator());
-    }
-
-    if (favoriteEvents.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.favorite_border, size: 50, color: Colors.grey),
-            SizedBox(height: 10),
-            Text("No tienes eventos favoritos"),
+  if (filteredEvents.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.event_available, size: 50, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            events.isEmpty
+                ? "No hay eventos disponibles"
+                : "No hay coincidencias con los filtros",
+            style: const TextStyle(fontSize: 18),
+          ),
+          if (events.isEmpty) ...[
+            const SizedBox(height: 8),
             TextButton(
-              onPressed: () => setState(() => _selectedIndex = 0),
-              child: Text("Explorar eventos"),
+              onPressed: _setupEventListeners,
+              child: const Text("Recargar eventos"),
             ),
           ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: EdgeInsets.all(8.0),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.8,
+        ],
       ),
-      itemCount: favoriteEvents.length,
-      itemBuilder: (context, index) {
-        final event = favoriteEvents[index];
-        return EventCard(
-          event: event,
-          isFavorite: true,
-          onToggleFavorite: _toggleFavorite,
-        );
-      },
     );
   }
 
-  @override
-  void dispose() {
-    nameController.dispose();
-    searchController.dispose();
-    phoneController.dispose();
-    super.dispose();
+  return GridView.builder(
+    padding: const EdgeInsets.all(12.0),
+    shrinkWrap: true, // evita altura infinita dentro de otros scrolls
+    physics: const ClampingScrollPhysics(), // scroll del grid
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 350, // ancho máximo por tarjeta
+      mainAxisExtent: 390,     // 🔑 altura fija suficiente para tu EventCard
+      crossAxisSpacing: 1,
+      mainAxisSpacing: 1,
+    ),
+    itemCount: filteredEvents.length,
+    itemBuilder: (context, index) {
+      final event = filteredEvents[index];
+      return EventCard(
+        event: event,
+        isFavorite: favoriteEvents.any((e) => e['id'] == event['id']),
+        onToggleFavorite: _toggleFavorite,
+      );
+    },
+  );
+}
+
+Widget _buildFavoritesScreen() {
+  if (_loadingFavorites) {
+    return const Center(child: CircularProgressIndicator());
   }
+
+  if (favoriteEvents.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.favorite_border, size: 50, color: Colors.grey),
+          const SizedBox(height: 10),
+          const Text("No tienes eventos favoritos"),
+          TextButton(
+            onPressed: () => setState(() => _selectedIndex = 0),
+            child: const Text("Explorar eventos"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  return GridView.builder(
+    padding: const EdgeInsets.all(12.0),
+    shrinkWrap: true,
+    physics: const ClampingScrollPhysics(),
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 350,
+      mainAxisExtent: 400, // 🔑 igual que arriba para consistencia
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+    ),
+    itemCount: favoriteEvents.length,
+    itemBuilder: (context, index) {
+      final event = favoriteEvents[index];
+      return EventCard(
+        event: event,
+        isFavorite: true, // en favoritos siempre es true
+        onToggleFavorite: _toggleFavorite,
+      );
+    },
+  );
+}
+
+
+@override
+void dispose() {
+  nameController.dispose();
+  searchController.dispose();
+  phoneController.dispose();
+  super.dispose();
+}
 }
