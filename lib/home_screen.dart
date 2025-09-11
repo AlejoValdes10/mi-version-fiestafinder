@@ -27,28 +27,33 @@ class HomeScreenState extends State<HomeScreen> {
   String email = "";
   String cedula = "";
   String tipoPersona = "";
-  String telefono = ""; // Nuevo campo para teléfono
+  String telefono = "";
   int _selectedIndex = 0;
 
   bool _loadingUser = true;
   bool _loadingEvents = true;
   bool _loadingFavorites = true;
-  bool _initialDataLoaded = false; // Agrégalo con las otras variables de estado
+  bool _initialDataLoaded = false;
 
   // Controladores
   final TextEditingController nameController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
-  final TextEditingController phoneController =
-      TextEditingController(); // Controlador para teléfono
+  final TextEditingController phoneController = TextEditingController();
 
   // Listas y filtros
   List<Map<String, dynamic>> events = [];
   List<Map<String, dynamic>> filteredEvents = [];
   List<Map<String, dynamic>> favoriteEvents = [];
 
- String selectedFilter = "Todos";
- String selectedDate = "Todos";
- String selectedType = "Todos";
+  // 🔹 Filtros (usaremos estos en lugar de selectedFilter/selectedDate/selectedType)
+  String selectedLocalidad = "Todos";
+  String selectedEntrada = "Todos";
+  String selectedTipo = "Todos";
+
+  // 🔹 Opciones de los dropdowns
+  final List<String> localidades = ["Todos", "Norte", "Sur", "Centro"];
+  final List<String> entradas = ["Todos", "Gratis", "De pago"];
+  final List<String> tipos = ["Todos", "Concierto", "Festival", "Cultural", "Fiesta"];
 
 
   @override
@@ -153,8 +158,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
-
-  Future<void> _setupEventListeners() async {
+Future<void> _setupEventListeners() async {
   setState(() {
     _loadingEvents = true;
     events = [];
@@ -167,79 +171,68 @@ class HomeScreenState extends State<HomeScreen> {
     debugPrint("🟢 Usuario: $tipoPersona | ID: $userId");
 
     if (tipoPersona == "Administrador") {
+      // 🔑 Admin ve todos los eventos
       query = FirebaseFirestore.instance
           .collection('eventos')
           .orderBy('fechaTimestamp', descending: true);
+
     } else if (tipoPersona == "Empresario") {
-      final userDoc = await FirebaseFirestore.instance.collection('usuarios').doc(userId).get();
-
-      if (userDoc.data()?['tipoPersona'] != 'Empresario') {
-        throw Exception('El usuario no tiene permisos de empresario');
-      }
-
-      try {
-        query = FirebaseFirestore.instance
-            .collection('eventos')
-            .where('creatorId', isEqualTo: userId)
-            .orderBy('fechaTimestamp', descending: true);
-      } catch (e) {
-        debugPrint("🔴 Error en consulta: ${e.toString()}");
-        if (e is FirebaseException && e.code == 'failed-precondition') {
-          debugPrint("Se requiere índice compuesto: ${e.message}");
-          query = FirebaseFirestore.instance
-              .collection('eventos')
-              .where('creatorId', isEqualTo: userId)
-              .orderBy('fechaTimestamp', descending: true);
-        } else {
-          rethrow;
-        }
-      }
-    } else {
+      // 🔑 Empresario ve solo los suyos
       query = FirebaseFirestore.instance
           .collection('eventos')
-          .where('status', isEqualTo: 'approved');
+          .where('creatorId', isEqualTo: userId)
+          .orderBy('fechaTimestamp', descending: true);
 
-      if (selectedFilter != "Todos") {
-        query = query.where('localidad', isEqualTo: selectedFilter);
+    } else {
+      // 🔑 Usuario normal: solo eventos con status = "approved"
+      query = FirebaseFirestore.instance
+          .collection('eventos')
+          .where('status', isEqualTo: 'approved')
+          .orderBy('fechaTimestamp', descending: true);
+
+      // ⚡ Solo aplicamos filtros que existen en Firestore
+      if (selectedLocalidad != "Todos") {
+        query = query.where('zona', isEqualTo: selectedLocalidad);
       }
-
-      if (selectedDate != "Todas") {
-        query = query.where('fecha', isEqualTo: selectedDate);
+      if (selectedTipo != "Todos") {
+        query = query.where('tipo', isEqualTo: selectedTipo);
       }
-
-      if (selectedType != "Todos") {
-        query = query.where('tipo', isEqualTo: selectedType);
-      }
-
-      query = query.orderBy('fechaTimestamp', descending: true);
+      // ❌ No filtramos por "entrada" aquí, eso se hace en _filterEvents()
     }
 
+    // 👂 Suscripción en tiempo real
     query.snapshots().listen(
       (snapshot) {
         if (!mounted) return;
-      /// DATOS DE LAS TARJETAS CUANDO DOY CLICK
+
         final newEvents = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>? ?? {};
-          return {
-  'id': doc.id,
-  'name': data['eventName'] ?? 'Evento sin nombre',
-  'image': data['image'] ?? '',
-  'localidad': data['direccion'] ?? 'Ubicación desconocida',
-  'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
-  'fechaRaw': data['fecha'] ?? '', // opcional, si usas la fecha en formato original
-  'tipo': data['tipo'] ?? 'General',
-  'status': data['status'] ?? 'pending',
-  'creatorId': data['creatorId'] ?? '',
-  'descripcion': data['descripcion'] ?? 'Sin descripción',
-  'direccion': data['direccion'] ?? data['address'] ?? '',
-  'costo': data['costo'],
-  'esGratis': data['esGratis'] ?? false,
-  'hora': data['hora'] ?? '',
-  'contacto': data['contacto'] ?? '',
-  'zona': data['zona'] ?? '',
-};
+          final rawStatus =
+              (data['status'] ?? '').toString().trim().toLowerCase();
 
+          debugPrint("✅ Evento encontrado: ${data['eventName']} | status: $rawStatus");
+
+          return {
+            'id': doc.id,
+            'eventName': data['eventName'] ?? 'Evento sin nombre',
+            'status': rawStatus,
+            'image': data['image'] ?? '',
+            'localidad': data['zona'] ?? 'Ubicación desconocida', // 👈 usar "zona"
+            'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
+            'fechaRaw': data['fecha'] ?? '',
+            'tipo': data['tipo'] ?? 'General',
+            'creatorId': data['creatorId'] ?? '',
+            'descripcion': data['descripcion'] ?? 'Sin descripción',
+            'direccion': data['direccion'] ?? '',
+            'costo': data['costo'],
+            'esGratis': data['esGratis'] ?? false,
+            'hora': data['hora'] ?? '',
+            'contacto': data['contacto'] ?? '',
+            'zona': data['zona'] ?? '',
+          };
         }).toList();
+
+        debugPrint("📌 Eventos recibidos (${tipoPersona}): ${newEvents.length}");
 
         if (mounted) {
           setState(() {
@@ -250,7 +243,7 @@ class HomeScreenState extends State<HomeScreen> {
         }
       },
       onError: (e) {
-        debugPrint("Error en stream: ${e.toString()}");
+        debugPrint("❌ Error en stream: ${e.toString()}");
         if (mounted) {
           setState(() => _loadingEvents = false);
           _showErrorSnackBar("Error en tiempo real: ${e.toString()}");
@@ -262,9 +255,10 @@ class HomeScreenState extends State<HomeScreen> {
       setState(() => _loadingEvents = false);
       _showErrorSnackBar("Error al cargar eventos: ${e.toString()}");
     }
-    debugPrint("Error en _setupEventListeners: ${e.toString()}");
+    debugPrint("❌ Error en _setupEventListeners: ${e.toString()}");
   }
 }
+
 
 
   // Formatear fecha desde diferentes formatos
@@ -287,27 +281,39 @@ class HomeScreenState extends State<HomeScreen> {
 
   setState(() {
     filteredEvents = events.where((event) {
-      final nombre = (event['eventName'] ?? event['name'] ?? '')
-          .toString()
-          .toLowerCase();
+      final nombre = (event['eventName'] ?? '').toString().toLowerCase();
       final localidad = (event['localidad'] ?? 'Todos').toString();
-      final entrada = (event['costo'] != null && event['costo'] > 0)
-          ? "De pago"
-          : "Gratis";
+      final entrada = (event['esGratis'] == true || (event['costo'] ?? 0) == 0)
+          ? "Gratis"
+          : "De pago";
       final tipo = (event['tipo'] ?? "Todos").toString();
 
       // Validaciones de filtros
       final matchSearch = nombre.contains(query);
       final matchLocalidad =
-          (selectedFilter == "Todos" || localidad == selectedFilter);
+          (selectedLocalidad == "Todos" || localidad == selectedLocalidad);
       final matchEntrada =
-          (selectedDate == "Todos" || entrada == selectedDate);
-      final matchTipo = (selectedType == "Todos" || tipo == selectedType);
+          (selectedEntrada == "Todos" || entrada == selectedEntrada);
+      final matchTipo =
+          (selectedTipo == "Todos" || tipo == selectedTipo);
 
-      return matchSearch && matchLocalidad && matchEntrada && matchTipo;
+      final include =
+          matchSearch && matchLocalidad && matchEntrada && matchTipo;
+
+      debugPrint(
+        "🔎 Evaluando: ${event['eventName'] ?? 'sin nombre'} "
+        "| Localidad: $localidad | Entrada: $entrada | Tipo: $tipo "
+        "| Search: $matchSearch | Loc: $matchLocalidad | Entrada: $matchEntrada | Tipo: $matchTipo "
+        "=> ${include ? "✅ INCLUIDO" : "❌ FILTRADO"}",
+      );
+
+      return include;
     }).toList();
+
+    debugPrint("📊 Total después de filtros: ${filteredEvents.length}");
   });
 }
+
 
 
   // tarjeta favoritos
@@ -475,15 +481,16 @@ Future<void> _toggleFavorite(Map<String, dynamic> event) async {
   Query query;
 
   if (status == 'all') {
-    query = FirebaseFirestore.instance
-        .collection('eventos')
-        .orderBy('fechaTimestamp', descending: true);
-  } else {
-    query = FirebaseFirestore.instance
-        .collection('eventos')
-        .where('status', isEqualTo: status)
-        .orderBy('fechaTimestamp', descending: true);
-  }
+  query = FirebaseFirestore.instance
+      .collection('eventos')
+      .orderBy('fechaTimestamp', descending: true);
+} else {
+  query = FirebaseFirestore.instance
+      .collection('eventos')
+      .where('status', isEqualTo: status)
+      .orderBy('fechaTimestamp', descending: true);
+}
+
 
   return StreamBuilder<QuerySnapshot>(
     stream: query.snapshots(),
@@ -900,13 +907,13 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
   //build empresario
   Widget _buildEmpresarioEventList(String status) {
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('eventos')
-              .where('creatorId', isEqualTo: widget.user.uid)
-              .where('status', isEqualTo: status)
-              .orderBy('fechaTimestamp', descending: true)
-              .snapshots(),
+      stream: FirebaseFirestore.instance
+    .collection('eventos')
+    .where('creatorId', isEqualTo: widget.user.uid)
+    .where('status', isEqualTo: status)
+    .orderBy('fechaTimestamp', descending: true)
+    .snapshots(),
+
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
@@ -1390,14 +1397,14 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
           onPressed: () {
             FilterModal.show(
               context: context,
-              currentFilter: selectedFilter,
-              currentDate: selectedDate,
-              currentType: selectedType,
+              currentFilter: selectedEntrada,
+              currentDate: selectedLocalidad,
+              currentType: selectedTipo,
               onApply: (filter, date, type) {
                 setState(() {
-                  selectedFilter = filter;
-                  selectedDate = date;
-                  selectedType = type;
+                  selectedEntrada = filter;
+                  selectedLocalidad = date;
+                  selectedTipo = type;
                 });
                 _filterEvents();
               },
