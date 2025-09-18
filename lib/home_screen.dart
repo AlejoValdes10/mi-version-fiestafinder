@@ -119,7 +119,7 @@ class HomeScreenState extends State<HomeScreen> {
 
       if (eventSnapshot.exists) {
         final data = eventSnapshot.data()!;
-        print('✅ Evento encontrado: ${data['eventName']} - Dirección: ${data['direccion']}');
+        debugPrint('✅ Evento encontrado (favorito): ${data['eventName']} - Dirección: ${data['direccion']}');
 
         loadedEvents.add({
           'id': eventSnapshot.id,
@@ -137,10 +137,12 @@ class HomeScreenState extends State<HomeScreen> {
           'contacto': data['contacto'] ?? '',
           'mediosPago': data['mediosPago'] ?? [],
           'infoPagos': data['infoPagos'] ?? {},
-          // agrega más si necesitas
+          // <<--- booleanos añadidos
+          'accesibilidad': data['accesibilidad'] ?? false,
+          'parqueadero': data['parqueadero'] ?? false,
         });
       } else {
-        print('⚠️ Evento no encontrado: $eventId');
+        debugPrint('⚠️ Evento no encontrado: $eventId');
       }
     }
 
@@ -158,6 +160,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
+
 Future<void> _setupEventListeners() async {
   setState(() {
     _loadingEvents = true;
@@ -171,64 +174,73 @@ Future<void> _setupEventListeners() async {
     debugPrint("🟢 Usuario: $tipoPersona | ID: $userId");
 
     if (tipoPersona == "Administrador") {
-      // 🔑 Admin ve todos los eventos
       query = FirebaseFirestore.instance
           .collection('eventos')
           .orderBy('fechaTimestamp', descending: true);
-
     } else if (tipoPersona == "Empresario") {
-      // 🔑 Empresario ve solo los suyos
+      final userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(userId)
+          .get();
+
+      if (userDoc.data()?['tipoPersona'] != 'Empresario') {
+        throw Exception('El usuario no tiene permisos de empresario');
+      }
+
       query = FirebaseFirestore.instance
           .collection('eventos')
           .where('creatorId', isEqualTo: userId)
           .orderBy('fechaTimestamp', descending: true);
-
     } else {
-      // 🔑 Usuario normal: solo eventos con status = "approved"
+      // Usuarios normales sólo ven approved
       query = FirebaseFirestore.instance
           .collection('eventos')
           .where('status', isEqualTo: 'approved')
           .orderBy('fechaTimestamp', descending: true);
 
-      // ⚡ Solo aplicamos filtros que existen en Firestore
-      if (selectedLocalidad != "Todos") {
+      // filtros opcionales (si aplican)
+      if (selectedLocalidad != null && selectedLocalidad != "Todos") {
         query = query.where('zona', isEqualTo: selectedLocalidad);
       }
-      if (selectedTipo != "Todos") {
+      if (selectedTipo != null && selectedTipo != "Todos") {
         query = query.where('tipo', isEqualTo: selectedTipo);
       }
-      // ❌ No filtramos por "entrada" aquí, eso se hace en _filterEvents()
     }
 
-    // 👂 Suscripción en tiempo real
     query.snapshots().listen(
       (snapshot) {
         if (!mounted) return;
 
         final newEvents = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>? ?? {};
-          final rawStatus =
-              (data['status'] ?? '').toString().trim().toLowerCase();
+          final rawStatus = (data['status'] ?? '').toString().trim().toLowerCase();
 
-          debugPrint("✅ Evento encontrado: ${data['eventName']} | status: $rawStatus");
+          // Añadimos accesibilidad y parqueadero aquí
+          final accesibilidadVal = data.containsKey('accesibilidad') ? data['accesibilidad'] : false;
+          final parqueaderoVal = data.containsKey('parqueadero') ? data['parqueadero'] : false;
+
+          debugPrint("✅ Evento encontrado: ${data['eventName']} | status: $rawStatus | accesibilidad: $accesibilidadVal | parqueadero: $parqueaderoVal");
 
           return {
             'id': doc.id,
             'eventName': data['eventName'] ?? 'Evento sin nombre',
             'status': rawStatus,
             'image': data['image'] ?? '',
-            'localidad': data['zona'] ?? 'Ubicación desconocida', // 👈 usar "zona"
+            'localidad': data['zona'] ?? data['direccion'] ?? 'Ubicación desconocida',
             'fecha': _formatDate(data['fechaTimestamp'] ?? data['fecha']),
             'fechaRaw': data['fecha'] ?? '',
             'tipo': data['tipo'] ?? 'General',
             'creatorId': data['creatorId'] ?? '',
             'descripcion': data['descripcion'] ?? 'Sin descripción',
-            'direccion': data['direccion'] ?? '',
+            'direccion': data['direccion'] ?? data['address'] ?? '',
             'costo': data['costo'],
             'esGratis': data['esGratis'] ?? false,
             'hora': data['hora'] ?? '',
             'contacto': data['contacto'] ?? '',
             'zona': data['zona'] ?? '',
+            // <<--- AQUI los booleanos
+            'accesibilidad': accesibilidadVal ?? false,
+            'parqueadero': parqueaderoVal ?? false,
           };
         }).toList();
 
@@ -258,6 +270,7 @@ Future<void> _setupEventListeners() async {
     debugPrint("❌ Error en _setupEventListeners: ${e.toString()}");
   }
 }
+
 
 
 
@@ -336,23 +349,27 @@ Future<void> _toggleFavorite(Map<String, dynamic> event) async {
     } else {
       // 🟢 Si no está, lo agregamos con toda la info
       final favoriteData = {
-        'id': eventId,
-        'name': event['name'] ?? event['eventName'] ?? 'Evento sin nombre',
-        'image': event['image'] ?? '',
-        'localidad': event['direccion'] ?? 'Ubicación desconocida',
-        'fecha': _formatDate(event['fechaTimestamp'] ?? event['fecha']),
-        'fechaRaw': event['fecha'] ?? '', // formato original opcional
-        'tipo': event['tipo'] ?? 'General',
-        'status': event['status'] ?? 'pending',
-        'creatorId': event['creatorId'] ?? '',
-        'descripcion': event['descripcion'] ?? 'Sin descripción',
-        'costo': event['costo'],
-        'esGratis': event['esGratis'] ?? false,
-        'hora': event['hora'] ?? '',
-        'contacto': event['contacto'] ?? '',
-        'zona': event['zona'] ?? '',
-        'addedAt': FieldValue.serverTimestamp(), // cuándo se agregó a favoritos
-      };
+  'id': eventId,
+  'name': event['name'] ?? event['eventName'] ?? 'Evento sin nombre',
+  'image': event['image'] ?? '',
+  'localidad': event['direccion'] ?? 'Ubicación desconocida',
+  'fecha': _formatDate(event['fechaTimestamp'] ?? event['fecha']),
+  'fechaRaw': event['fecha'] ?? '',
+  'tipo': event['tipo'] ?? 'General',
+  'status': event['status'] ?? 'pending',
+  'creatorId': event['creatorId'] ?? '',
+  'descripcion': event['descripcion'] ?? 'Sin descripción',
+  'costo': event['costo'],
+  'esGratis': event['esGratis'] ?? false,
+  'hora': event['hora'] ?? '',
+  'contacto': event['contacto'] ?? '',
+  'zona': event['zona'] ?? '',
+  // <<--- booleanos
+  'accesibilidad': event['accesibilidad'] ?? false,
+  'parqueadero': event['parqueadero'] ?? false,
+  'addedAt': FieldValue.serverTimestamp(),
+};
+
 
       await favoritesRef.doc(eventId).set(favoriteData);
       _showSuccessFeedback("Agregado a favoritos");
@@ -427,28 +444,30 @@ Future<void> _toggleFavorite(Map<String, dynamic> event) async {
                     const SizedBox(height: 16),
                     // Tabs
                     Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: TabBar(
-                        isScrollable: true,
-                        labelColor: Colors.black,
-                        unselectedLabelColor: Colors.grey[700],
-                        indicator: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(26),
-                        ),
-                        tabs: const [
-                          Tab(text: "Pendientes"),
-                          Tab(text: "Aprobados"),
-                          Tab(text: "Rechazados"),
-                          Tab(text: "Todos"),
-                        ],
-                      ),
-                    ),
+  margin: const EdgeInsets.symmetric(horizontal: 20),
+  padding: const EdgeInsets.all(4),
+  decoration: BoxDecoration(
+    color: Colors.white.withOpacity(0.4),
+    borderRadius: BorderRadius.circular(30),
+  ),
+  child: TabBar(
+    isScrollable: false, // ✅ Centrado y ancho total
+    labelColor: Colors.black,
+    unselectedLabelColor: Colors.grey,
+    indicator: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(30), // ✅ forma de pastilla
+    ),
+    indicatorSize: TabBarIndicatorSize.label, // ✅ el indicador se ajusta al texto
+    labelPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // ✅ más aire
+    tabs: const [
+      Tab(text: "Pendientes"),
+      Tab(text: "Aprobados"),
+      Tab(text: "Rechazados"),
+    ],
+  ),
+),
+
                     const SizedBox(height: 12),
                     // Contenido de Tabs
                     Expanded(
@@ -836,44 +855,90 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
   // Notificar al usuario en la app
 
   // Mostrar diálogo de mis eventos
-  Future<void> _showMyEventsDialog() async {
-    try {
-      if (tipoPersona != "Empresario" && tipoPersona != "Administrador") {
-        _showErrorSnackBar("Acceso solo para empresarios y administradores");
-        return;
-      }
+ Future<void> _showMyEventsDialog() async {
+  try {
+    if (tipoPersona != "Empresario" && tipoPersona != "Administrador") {
+      _showErrorSnackBar("Acceso solo para empresarios y administradores");
+      return;
+    }
 
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: Text(
-                tipoPersona == "Administrador"
-                    ? "Panel de Administración"
-                    : "Mis Eventos",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                height: MediaQuery.of(context).size.height * 0.7,
-                child: DefaultTabController(
-                  length: 3, // Solo 3 pestañas para empresario
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return DefaultTabController(
+          length: 3, // ✅ Solo 3 pestañas para empresario
+          child: DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.85,
+            minChildSize: 0.6,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.6),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Column(
                     children: [
-                      TabBar(
-                        isScrollable: true,
-                        labelColor: Colors.deepPurple,
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: Colors.deepPurple,
-                        tabs: [
-                          Tab(icon: Icon(Icons.pending), text: "Pendientes"),
-                          Tab(
-                            icon: Icon(Icons.check_circle),
-                            text: "Aprobados",
-                          ),
-                          Tab(icon: Icon(Icons.cancel), text: "Rechazados"),
-                        ],
+                      // Handle
+                      Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
+                      // Título
+                      Text(
+                        tipoPersona == "Administrador"
+                            ? "Panel de Administración"
+                            : "Mis Eventos",
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Tabs
+                      Container(
+  margin: const EdgeInsets.symmetric(horizontal: 20),
+  padding: const EdgeInsets.all(4),
+  decoration: BoxDecoration(
+    color: Colors.white.withOpacity(0.4),
+    borderRadius: BorderRadius.circular(30),
+  ),
+  child: TabBar(
+    isScrollable: false, // ✅ Centrado y ancho total
+    labelColor: Colors.black,
+    unselectedLabelColor: Colors.grey,
+    indicator: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(30), // ✅ forma de pastilla
+    ),
+    indicatorSize: TabBarIndicatorSize.label, // ✅ el indicador se ajusta al texto
+    labelPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // ✅ más aire
+    tabs: const [
+      Tab(text: "Pendientes"),
+      Tab(text: "Aprobados"),
+      Tab(text: "Rechazados"),
+    ],
+  ),
+),
+
+
+
+                      const SizedBox(height: 12),
+
+                      // Contenido Tabs
                       Expanded(
                         child: TabBarView(
                           children: [
@@ -886,23 +951,18 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
                     ],
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    "Cerrar",
-                    style: TextStyle(color: Colors.deepPurple),
-                  ),
-                ),
-              ],
-            ),
-      );
-    } catch (e) {
-      debugPrint("Error en diálogo mis eventos: $e");
-      _showErrorSnackBar("Error: ${e.toString()}");
-    }
+              );
+            },
+          ),
+        );
+      },
+    );
+  } catch (e) {
+    debugPrint("Error en diálogo mis eventos: $e");
+    _showErrorSnackBar("Error: ${e.toString()}");
   }
+}
+
 
   //build empresario
   Widget _buildEmpresarioEventList(String status) {
@@ -1375,16 +1435,14 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
         Expanded(
           child: TextField(
             controller: searchController,
-            onChanged: (value) {
-              // filtra en tiempo real cuando el usuario escribe
-              _filterEvents();
-            },
+            onChanged: (_) => _filterEvents(), // Filtra en tiempo real
             decoration: InputDecoration(
               hintText: 'Buscar eventos...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
             ),
           ),
         ),
@@ -1394,20 +1452,22 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
         // ⚙️ Botón de filtros
         IconButton(
           icon: const Icon(Icons.filter_list),
+          tooltip: "Filtros",
           onPressed: () {
             FilterModal.show(
               context: context,
-              currentFilter: selectedEntrada,
-              currentDate: selectedLocalidad,
-              currentType: selectedTipo,
-              onApply: (filter, date, type) {
-                setState(() {
-                  selectedEntrada = filter;
-                  selectedLocalidad = date;
-                  selectedTipo = type;
-                });
-                _filterEvents();
-              },
+              currentEntrada: selectedEntrada,   // 🎟 Entrada
+              currentLocalidad: selectedLocalidad, // 📍 Localidad
+              currentTipo: selectedTipo,         // 🎉 Tipo de evento
+              onApply: (localidad, entrada, tipo) {
+  setState(() {
+    selectedLocalidad = localidad; // 📍 Localidad
+    selectedEntrada = entrada;     // 🎟 Entrada
+    selectedTipo = tipo;           // 🎉 Tipo
+  });
+  _filterEvents();
+},
+
             );
           },
         ),
@@ -1415,6 +1475,8 @@ void _showEventDetailsAdmin(Map<String, dynamic> data) {
     ),
   );
 }
+
+
 
 
   Widget _buildCurrentScreen() {
@@ -1572,6 +1634,7 @@ Widget _buildFavoritesScreen() {
     itemCount: favoriteEvents.length,
     itemBuilder: (context, index) {
       final event = favoriteEvents[index];
+      
       return EventCard(
         event: event,
         isFavorite: true, // en favoritos siempre es true

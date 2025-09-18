@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'dart:ui';
 
 class FilterModal {
   static void show({
     required BuildContext context,
-    required String currentFilter,
-    required String currentDate,
-    required String currentType,
-    required Function(String, String, String) onApply,
+    required String currentLocalidad,
+    required String currentEntrada,
+    required String currentTipo,
+    required Function(String localidad, String entrada, String tipo) onApply,
   }) {
-    String tempFilter = currentFilter;
-    String tempDate = currentDate;
-    String tempType = currentType;
+    // Variables temporales
+    String tempLocalidad = currentLocalidad;
+    String tempEntrada = currentEntrada;
+    String tempTipo = currentTipo;
 
+    // Opciones
     final localidades = [
       'Todos',
       'Norte',
@@ -26,11 +27,11 @@ class FilterModal {
       'Suroriente',
     ];
 
-    final entrada = ["Todos", "De pago", "Gratis"];
+    final entradas = ["Todos", "Gratis", "De pago"]; // 👈 Orden corregido
 
     final tipos = [
       "Todos",
-      " Gastrobar",
+      "Gastrobar",
       "Discotecas",
       "Cultural",
       "Deportivo",
@@ -49,7 +50,7 @@ class FilterModal {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.9),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                 ),
                 padding: EdgeInsets.fromLTRB(
                   25,
@@ -64,7 +65,7 @@ class FilterModal {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'Filtrar Eventos',
                           style: TextStyle(
                             fontSize: 22,
@@ -73,73 +74,73 @@ class FilterModal {
                           ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.close, color: Colors.black54),
+                          icon: const Icon(Icons.close, color: Colors.black54),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                    // Filtro de Localidad con scroll horizontal
+                    // Localidad
                     _buildModernFilterSection(
                       title: "Localidad",
                       options: localidades,
-                      currentSelection: tempFilter,
+                      currentSelection: tempLocalidad,
                       onSelect: (value) {
                         setModalState(() {
-                          tempFilter = value;
+                          tempLocalidad = value;
                         });
                       },
                     ),
-                    SizedBox(height: 25),
+                    const SizedBox(height: 25),
 
-                    // Filtro de Fecha con scroll horizontal
+                    // Tipo de entrada
                     _buildModernFilterSection(
                       title: "Tipo de entrada",
-                      options: entrada,
-                      currentSelection: tempDate,
+                      options: entradas,
+                      currentSelection: tempEntrada,
                       onSelect: (value) {
                         setModalState(() {
-                          tempDate = value;
+                          tempEntrada = value;
                         });
                       },
                     ),
-                    SizedBox(height: 25),
+                    const SizedBox(height: 25),
 
-                    // Filtro de Tipo
+                    // Tipo de evento
                     _buildModernFilterSection(
                       title: "Tipo de Evento",
                       options: tipos,
-                      currentSelection: tempType,
+                      currentSelection: tempTipo,
                       onSelect: (value) {
                         setModalState(() {
-                          tempType = value;
+                          tempTipo = value;
                         });
                       },
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 30),
 
-                    // Botón de aplicar
+                    // Botones
                     Row(
                       children: [
-                        // Botón Reset
+                        // Reset
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () {
                               setModalState(() {
-                                tempFilter = "Todos";
-                                tempDate = "Todas";
-                                tempType = "Todos";
+                                tempLocalidad = "Todos";
+                                tempEntrada = "Todos";
+                                tempTipo = "Todos";
                               });
                             },
                             style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
                               ),
-                              side: BorderSide(color: Colors.black),
+                              side: const BorderSide(color: Colors.black),
                             ),
-                            child: Text(
+                            child: const Text(
                               'Reiniciar',
                               style: TextStyle(
                                 fontSize: 18,
@@ -149,23 +150,23 @@ class FilterModal {
                             ),
                           ),
                         ),
-                        SizedBox(width: 15),
-                        // Botón Aplicar
+                        const SizedBox(width: 15),
+                        // Aplicar
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
-                              onApply(tempFilter, tempDate, tempType);
+                              onApply(tempLocalidad, tempEntrada, tempTipo);
                               Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
-                              padding: EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
                               ),
                               elevation: 0,
                             ),
-                            child: Text(
+                            child: const Text(
                               'Aplicar Filtros',
                               style: TextStyle(
                                 fontSize: 18,
@@ -187,7 +188,7 @@ class FilterModal {
     );
   }
 
-  // Método auxiliar para construir secciones de filtro
+  // 🔹 Método auxiliar
   static Widget _buildModernFilterSection({
     required String title,
     required List<String> options,
@@ -201,19 +202,19 @@ class FilterModal {
           padding: const EdgeInsets.only(left: 8.0),
           child: Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.black54,
             ),
           ),
         ),
-        SizedBox(height: 12),
-        Container(
+        const SizedBox(height: 12),
+        SizedBox(
           height: 50,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            physics: BouncingScrollPhysics(),
+            physics: const BouncingScrollPhysics(),
             itemCount: options.length,
             itemBuilder: (context, index) {
               final option = options[index];
@@ -232,9 +233,9 @@ class FilterModal {
                   onSelected: (selected) => onSelect(option),
                   selectedColor: Colors.black,
                   backgroundColor: Colors.grey[200],
-                  shape: StadiumBorder(),
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  labelPadding: EdgeInsets.symmetric(horizontal: 4),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 ),
               );
             },
