@@ -4,8 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'payment_service.dart';
+
 class EventCard extends StatelessWidget {
   final Map<String, dynamic> event;
   final bool isFavorite;
@@ -628,24 +628,12 @@ class EventCard extends StatelessWidget {
                                     vertical: 14,
                                   ),
                                   onPressed: () async {
-                                    final price =
-                                        _getPrice() == 'Gratis'
-                                            ? 0.0
-                                            : double.parse(
-                                              _getPrice().replaceAll(
-                                                RegExp(r'[^0-9]'),
-                                                '',
-                                              ),
-                                            );
-
-                                    // Primero manejar pago
-                                    await _handlePayment(
+                                    // 🔹 Llamar directamente al servicio de pago
+                                    await handlePayment(
                                       context,
-                                      price,
-                                      eventId,
+                                      event, // 👈 pasamos el evento completo
+                                      eventId, // 👈 pasamos el ID
                                     );
-
-                                    // Luego registrar la asistencia
                                   },
                                   child: Text(
                                     _getPrice() == 'Gratis'
@@ -663,233 +651,6 @@ class EventCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
-            ),
-          ),
-    );
-  }
-
-  /// 🔹 Simulación de pagos y registro gratis
-  Future<void> _handlePayment(BuildContext context, double price, String eventId) async {
-  final user = FirebaseAuth.instance.currentUser;
-
-  if (user == null) {
-    _showCustomDialog(
-      context,
-      title: "Inicia sesión",
-      message: "Debes iniciar sesión para continuar con la reserva.",
-      icon: Icons.warning_amber_rounded,
-      color: Colors.orange,
-    );
-    return;
-  }
-
-  final reservaId = "${eventId}_${user.uid}";
-  final reservaRef = FirebaseFirestore.instance.collection("reservas").doc(reservaId);
-
-  try {
-    final doc = await reservaRef.get();
-    if (doc.exists) {
-      _showCustomDialog(
-        context,
-        title: "Ya reservado ⚠️",
-        message: "Ya tienes una reserva para este evento.",
-        icon: Icons.info_outline_rounded,
-        color: Colors.orange,
-      );
-      return;
-    }
-
-    if (price == 0) {
-      // ✅ Evento gratis
-      await reservaRef.set({
-        'eventoId': eventId,
-        'userId': user.uid,
-        'tipo': 'gratis',
-        'estado': 'confirmado',
-        'fecha': FieldValue.serverTimestamp(),
-      });
-
-      _showCustomDialog(
-        context,
-        title: "Registro exitoso 🎉",
-        message: "Te has registrado correctamente a este evento gratis.",
-        icon: Icons.check_circle_rounded,
-        color: Colors.green,
-      );
-    } else {
-      // 💳 Simulación de pago
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text("Confirmar compra"),
-          content: Text("¿Deseas pagar \$${price.toStringAsFixed(0)} por este evento?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancelar"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-
-                // 🔹 Paso 1: Mostrar "Procesando..."
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => AlertDialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 20),
-                        Text(
-                          "Procesando pago...",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-
-                // 🔹 Paso 2: Simular tiempo de procesamiento
-                Future.delayed(const Duration(seconds: 2), () async {
-                  Navigator.pop(context); // cerrar "procesando"
-
-                  await reservaRef.set({
-                    'eventoId': eventId,
-                    'userId': user.uid,
-                    'tipo': 'pago',
-                    'estado': 'pago confirmado',
-                    'fecha': FieldValue.serverTimestamp(),
-                  });
-
-                  // 🔹 Paso 3: Mostrar éxito
-                  _showCustomDialog(
-                    context,
-                    title: "Pago exitoso ✅",
-                    message: "Tu entrada ha sido confirmada.\n¡Disfruta el evento!",
-                    icon: Icons.celebration_rounded,
-                    color: Colors.green,
-                  );
-                });
-              },
-              child: const Text("Confirmar"),
-            ),
-          ],
-        ),
-      );
-    }
-  } catch (e) {
-    _showCustomDialog(
-      context,
-      title: "Error ❌",
-      message: "Ocurrió un problema al guardar la reserva: $e",
-      icon: Icons.error_outline_rounded,
-      color: Colors.red,
-    );
-  }
-}
-
-
-  /// 🔹 Diálogo reutilizable y bonito
-  /// 🔹 Diálogo moderno y centrado
-  void _showCustomDialog(
-    BuildContext context, {
-    required String title,
-    required String message,
-    required IconData icon,
-    required Color color,
-  }) {
-    showDialog(
-      context: context,
-      builder:
-          (_) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 🔹 Icono grande con círculo de fondo
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: color.withOpacity(0.1),
-                    child: Icon(icon, size: 50, color: color),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 🔹 Título
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 🔹 Mensaje
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 🔹 Botón principal
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: color,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        "OK",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),

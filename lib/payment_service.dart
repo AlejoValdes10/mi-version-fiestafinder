@@ -113,7 +113,7 @@ Future<void> handlePayment(
   if (price == 0) {
     await FirebaseFirestore.instance.collection('reservas').add({
       'eventoId': eventId,
-      'userId': user.uid,
+      'userId': FirebaseAuth.instance.currentUser!.uid,
       'estado': 'confirmado',
       'price': 0,
       'paymentMethod': 'Gratis',
@@ -183,56 +183,83 @@ Future<void> handlePayment(
               ),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // cerrar el selector de método
 
-                  // 🔄 Mostrar "Procesando..."
+                  // 🔄 Mostrar "Procesando..." y guardar referencia del diálogo
                   showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder:
-                        (_) => Dialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Procesando pago...',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
+                    builder: (ctx) {
+                      return Dialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text(
+                                "Procesando pago...",
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
                         ),
+                      );
+                    },
                   );
 
-                  await Future.delayed(const Duration(seconds: 2));
-                  Navigator.pop(context); // cerrar "procesando"
+                  try {
+                    // Simulación de tiempo de pasarela
+                    await Future.delayed(const Duration(seconds: 2));
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pop(); // cerrar "Procesando..."
 
-                  // Guardar en Firestore
-                  await FirebaseFirestore.instance.collection('reservas').add({
-                    'eventoId': eventId,
-                    'userId': user.uid,
-                    'estado': 'pago confirmado',
-                    'price': price,
-                    'paymentMethod': selectedMethod,
-                    'timestamp': FieldValue.serverTimestamp(),
-                  });
+                    // Guardar pago en Firestore
+                    await FirebaseFirestore.instance.collection('pagos').add({
+                      'eventoId': eventId,
+                      'userId': FirebaseAuth.instance.currentUser!.uid,
+                      'estado': 'pago confirmado',
+                      'price': price,
+                      'paymentMethod': selectedMethod,
+                      'timestamp': FieldValue.serverTimestamp(),
+                    });
 
-                  _showCustomDialog(
-                    context,
-                    title: "Pago exitoso ✅",
-                    message:
-                        "Tu compra se ha confirmado con $selectedMethod.\n¡Disfruta el evento!",
-                    icon: Icons.celebration_rounded,
-                    color: Colors.green,
-                    buttonText: "Genial",
-                  );
+                    // 🔹 Cerrar loader si sigue abierto
+                    if (Navigator.of(context, rootNavigator: true).canPop()) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                    }
+
+                    // Mostrar confirmación
+                    _showCustomDialog(
+                      context,
+                      title: "Pago exitoso ✅",
+                      message:
+                          "Tu compra se ha confirmado con $selectedMethod.\n¡Disfruta el evento!",
+                      icon: Icons.celebration_rounded,
+                      color: Colors.green,
+                      buttonText: "Genial",
+                    );
+                  } catch (e) {
+                    // 🔹 Cerrar loader si hay error
+                    if (Navigator.of(context, rootNavigator: true).canPop()) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                    }
+
+                    _showCustomDialog(
+                      context,
+                      title: "Error ❌",
+                      message: "Ocurrió un problema al procesar el pago:\n$e",
+                      icon: Icons.error_rounded,
+                      color: Colors.red,
+                      buttonText: "Cerrar",
+                    );
+                  }
                 },
                 child: const Text('Pagar'),
               ),
