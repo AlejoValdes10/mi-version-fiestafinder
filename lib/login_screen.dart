@@ -429,7 +429,62 @@ class LoginScreenState extends State<LoginScreen> {
                         SizedBox(height: 10),
 
                         // 🔧 ===== BOTONES TEMPORALES DE PRUEBA DE LOGIN ===== 🔧
-
+                        // 🔴 ELIMINA ESTO DESPUÉS DE LAS PRUEBAS 🔴
+                        Column(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text = 'cristian@gmail.com';
+                                  passwordController.text = 'Fiestafinder123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login EMPRESARIO'),
+                            ),
+                            SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text = 'admin@admin.com';
+                                  passwordController.text = 'Fiestafinder123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login ADMINISTRADOR'),
+                            ),
+                            SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  emailController.text =
+                                      'jersonusuario@gmail.com';
+                                  passwordController.text = 'Jersonusuario123';
+                                });
+                                _signInWithEmail();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text('Login USUARIO'),
+                            ),
+                          ],
+                        ),
                         // 🔧 ===== FIN BOTONES TEMPORALES DE PRUEBA ===== 🔧
                         SizedBox(height: 20),
                         ElevatedButton(

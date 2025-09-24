@@ -6,7 +6,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 class EventCard extends StatelessWidget {
   final Map<String, dynamic> event;
   final bool isFavorite;
@@ -628,19 +627,25 @@ class EventCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),
-                                  onPressed: () {
-                                    _handlePayment(
+                                  onPressed: () async {
+                                    final price =
+                                        _getPrice() == 'Gratis'
+                                            ? 0.0
+                                            : double.parse(
+                                              _getPrice().replaceAll(
+                                                RegExp(r'[^0-9]'),
+                                                '',
+                                              ),
+                                            );
+
+                                    // Primero manejar pago
+                                    await _handlePayment(
                                       context,
-                                      _getPrice() == 'Gratis'
-                                          ? 0.0
-                                          : double.parse(
-                                            _getPrice().replaceAll(
-                                              RegExp(r'[^0-9]'),
-                                              '',
-                                            ),
-                                          ),
+                                      price,
                                       eventId,
                                     );
+
+                                    // Luego registrar la asistencia
                                   },
                                   child: Text(
                                     _getPrice() == 'Gratis'
@@ -665,15 +670,31 @@ class EventCard extends StatelessWidget {
   }
 
   /// 🔹 Simulación de pagos y registro gratis
-  void _handlePayment(BuildContext context, double price, String eventId) {
-    final user = FirebaseAuth.instance.currentUser;
+  Future<void> _handlePayment(BuildContext context, double price, String eventId) async {
+  final user = FirebaseAuth.instance.currentUser;
 
-    if (user == null) {
+  if (user == null) {
+    _showCustomDialog(
+      context,
+      title: "Inicia sesión",
+      message: "Debes iniciar sesión para continuar con la reserva.",
+      icon: Icons.warning_amber_rounded,
+      color: Colors.orange,
+    );
+    return;
+  }
+
+  final reservaId = "${eventId}_${user.uid}";
+  final reservaRef = FirebaseFirestore.instance.collection("reservas").doc(reservaId);
+
+  try {
+    final doc = await reservaRef.get();
+    if (doc.exists) {
       _showCustomDialog(
         context,
-        title: "Inicia sesión",
-        message: "Debes iniciar sesión para continuar con la reserva.",
-        icon: Icons.warning_amber_rounded,
+        title: "Ya reservado ⚠️",
+        message: "Ya tienes una reserva para este evento.",
+        icon: Icons.info_outline_rounded,
         color: Colors.orange,
       );
       return;
@@ -681,11 +702,12 @@ class EventCard extends StatelessWidget {
 
     if (price == 0) {
       // ✅ Evento gratis
-      FirebaseFirestore.instance.collection('reservas').add({
+      await reservaRef.set({
         'eventoId': eventId,
         'userId': user.uid,
+        'tipo': 'gratis',
         'estado': 'confirmado',
-        'fecha': Timestamp.now(),
+        'fecha': FieldValue.serverTimestamp(),
       });
 
       _showCustomDialog(
@@ -700,85 +722,91 @@ class EventCard extends StatelessWidget {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder:
-            (_) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text("Confirmar compra"),
-              content: Text(
-                "¿Deseas pagar \$${price.toStringAsFixed(0)} por este evento?",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancelar"),
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text("Confirmar compra"),
+          content: Text("¿Deseas pagar \$${price.toStringAsFixed(0)} por este evento?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancelar"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+
+                // 🔹 Paso 1: Mostrar "Procesando..."
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => AlertDialog(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 20),
+                        Text(
+                          "Procesando pago...",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
+                );
 
-                    // 🔹 Paso 1: Mostrar "Procesando..."
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder:
-                          (_) => AlertDialog(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 20),
-                                Text(
-                                  "Procesando pago...",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                    );
+                // 🔹 Paso 2: Simular tiempo de procesamiento
+                Future.delayed(const Duration(seconds: 2), () async {
+                  Navigator.pop(context); // cerrar "procesando"
 
-                    // 🔹 Paso 2: Simular tiempo de procesamiento
-                    Future.delayed(const Duration(seconds: 2), () {
-                      Navigator.pop(context); // cerrar "procesando"
+                  await reservaRef.set({
+                    'eventoId': eventId,
+                    'userId': user.uid,
+                    'tipo': 'pago',
+                    'estado': 'pago confirmado',
+                    'fecha': FieldValue.serverTimestamp(),
+                  });
 
-                      FirebaseFirestore.instance.collection('reservas').add({
-                        'eventoId': eventId,
-                        'userId': user.uid,
-                        'estado': 'pago confirmado',
-                        'fecha': Timestamp.now(),
-                      });
-
-                      // 🔹 Paso 3: Mostrar éxito
-                      _showCustomDialog(
-                        context,
-                        title: "Pago exitoso ✅",
-                        message:
-                            "Tu entrada ha sido confirmada.\n¡Disfruta el evento!",
-                        icon: Icons.celebration_rounded,
-                        color: Colors.green,
-                      );
-                    });
-                  },
-                  child: const Text("Confirmar"),
-                ),
-              ],
+                  // 🔹 Paso 3: Mostrar éxito
+                  _showCustomDialog(
+                    context,
+                    title: "Pago exitoso ✅",
+                    message: "Tu entrada ha sido confirmada.\n¡Disfruta el evento!",
+                    icon: Icons.celebration_rounded,
+                    color: Colors.green,
+                  );
+                });
+              },
+              child: const Text("Confirmar"),
             ),
+          ],
+        ),
       );
     }
+  } catch (e) {
+    _showCustomDialog(
+      context,
+      title: "Error ❌",
+      message: "Ocurrió un problema al guardar la reserva: $e",
+      icon: Icons.error_outline_rounded,
+      color: Colors.red,
+    );
   }
+}
+
 
   /// 🔹 Diálogo reutilizable y bonito
   /// 🔹 Diálogo moderno y centrado

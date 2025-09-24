@@ -5,6 +5,8 @@ import 'package:lottie/lottie.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'agregar_evento_screen.dart';
 import 'dart:ui';
+import 'mis_eventos_empresario_screen.dart';
+import 'mis_reservas_screen.dart';
 
 // Widgets personalizados
 import 'event_card.dart';
@@ -1315,43 +1317,70 @@ class HomeScreenState extends State<HomeScreen> {
                 backgroundColor: Colors.white,
                 toolbarHeight: kToolbarHeight,
                 actions: [
-                  // Mostrar icono de calendario solo si NO es administrador
-                  if (tipoPersona != "Administrador")
-                    IconButton(
-                      icon: const Icon(
-                        Icons.calendar_today,
-                        size: 28,
-                        color: Colors.black,
-                      ),
-                      onPressed: _showMyEventsDialog,
-                    ),
-                  if (tipoPersona == "Empresario")
-                    IconButton(
-                      icon: const Icon(
-                        Icons.add_box_rounded,
-                        size: 28,
-                        color: Colors.black,
-                      ),
-                      onPressed: () => _showAddEventDialog(),
-                    ),
-                  if (tipoPersona == "Administrador")
-                    IconButton(
-                      icon: const Icon(
-                        Icons.admin_panel_settings,
-                        size: 28,
-                        color: Colors.black,
-                      ),
-                      onPressed: _showAdminPanel,
-                    ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.logout,
-                      size: 28,
-                      color: Colors.black,
-                    ),
-                    onPressed: _confirmLogout,
-                  ),
-                ],
+  // 👤 Usuario normal → Mis reservas
+  if (tipoPersona == "Usuario")
+    IconButton(
+      icon: const Icon(
+        Icons.event_available_rounded,
+        size: 28,
+        color: Colors.black,
+      ),
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MisReservasScreen()),
+        );
+      },
+    ),
+
+  // 🏢 Empresario → crear eventos
+  if (tipoPersona == "Empresario") ...[
+    IconButton(
+      icon: const Icon(
+        Icons.add_box_rounded,
+        size: 28,
+        color: Colors.black,
+      ),
+      onPressed: () => _showAddEventDialog(),
+    ),
+    IconButton(
+      icon: const Icon(
+        Icons.people_alt_rounded,
+        size: 28,
+        color: Colors.black,
+      ),
+      onPressed: () {
+        // 👥 Ir a la pantalla de asistentes
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MisEventosEmpresarioScreen()),
+        );
+      },
+    ),
+  ],
+
+  // 🛠️ Administrador → panel admin
+  if (tipoPersona == "Administrador")
+    IconButton(
+      icon: const Icon(
+        Icons.admin_panel_settings,
+        size: 28,
+        color: Colors.black,
+      ),
+      onPressed: _showAdminPanel,
+    ),
+
+  // 🚪 Logout (para todos)
+  IconButton(
+    icon: const Icon(
+      Icons.logout,
+      size: 28,
+      color: Colors.black,
+    ),
+    onPressed: _confirmLogout,
+  ),
+],
+
               ),
             ],
         body: Column(
