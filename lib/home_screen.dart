@@ -1,3 +1,4 @@
+import 'package:fiesta_finder/door_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -785,27 +786,68 @@ class HomeScreenState extends State<HomeScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text("Eliminar evento"),
-            content: Text(
+            title: const Text("Eliminar evento"),
+            content: const Text(
               "¿Estás seguro de que quieres eliminar este evento? Esta acción no se puede deshacer.",
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text("Cancelar"),
+                child: const Text("Cancelar"),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
+
+                  // 1️⃣ Obtener los datos del evento antes de eliminar
+                  final eventDoc =
+                      await FirebaseFirestore.instance
+                          .collection('eventos')
+                          .doc(eventId)
+                          .get();
+
+                  if (!eventDoc.exists) return;
+
+                  final data = eventDoc.data() as Map<String, dynamic>;
+                  final empresarioId = data['creatorId'];
+                  final nombreEvento =
+                      data['eventName'] ?? data['nombre'] ?? 'Evento';
+
+                  // 2️⃣ Eliminar el evento
                   await FirebaseFirestore.instance
                       .collection('eventos')
                       .doc(eventId)
                       .delete();
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("Evento eliminado.")));
+
+                  // 3️⃣ Agregar la notificación directamente en el documento del empresario
+                  await FirebaseFirestore.instance
+                      .collection('usuarios')
+                      .doc(empresarioId)
+                      .update({
+                        "notificaciones": FieldValue.arrayUnion([
+                          {
+                            "title": "Evento eliminado",
+                            "message":
+                                "El administrador ha eliminado tu evento '$nombreEvento'.",
+                            "timestamp": FieldValue.serverTimestamp(),
+                            "read": false,
+                          },
+                        ]),
+                      });
+
+                  // 4️⃣ Feedback al administrador
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Evento eliminado y notificación enviada al empresario.",
+                      ),
+                    ),
+                  );
                 },
-                child: Text("Eliminar", style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  "Eliminar",
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -1317,70 +1359,103 @@ class HomeScreenState extends State<HomeScreen> {
                 backgroundColor: Colors.white,
                 toolbarHeight: kToolbarHeight,
                 actions: [
-  // 👤 Usuario normal → Mis reservas
-  if (tipoPersona == "Usuario")
-    IconButton(
-      icon: const Icon(
-        Icons.event_available_rounded,
-        size: 28,
-        color: Colors.black,
-      ),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MisReservasScreen()),
-        );
-      },
-    ),
+                  // 👤 Usuario normal → Mis reservas
+                  if (tipoPersona == "Usuario") ...[
+                    IconButton(
+                      icon: const Icon(
+                        Icons.event_available_rounded,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MisReservasScreen(),
+                          ),
+                        );
+                      },
+                    ),
 
-  // 🏢 Empresario → crear eventos
-  if (tipoPersona == "Empresario") ...[
-    IconButton(
-      icon: const Icon(
-        Icons.add_box_rounded,
-        size: 28,
-        color: Colors.black,
-      ),
-      onPressed: () => _showAddEventDialog(),
-    ),
-    IconButton(
-      icon: const Icon(
-        Icons.people_alt_rounded,
-        size: 28,
-        color: Colors.black,
-      ),
-      onPressed: () {
-        // 👥 Ir a la pantalla de asistentes
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MisEventosEmpresarioScreen()),
-        );
-      },
-    ),
-  ],
+                    // 🔹 Nuevo icono de carro → DoorScreen
+                    IconButton(
+                      icon: const Icon(
+                        Icons.directions_car_rounded, // Icono de carro
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) =>
+                                    const DoorScreen(), // Asegúrate de importar door_screen.dart
+                          ),
+                        );
+                      },
+                    ),
+                  ],
 
-  // 🛠️ Administrador → panel admin
-  if (tipoPersona == "Administrador")
-    IconButton(
-      icon: const Icon(
-        Icons.admin_panel_settings,
-        size: 28,
-        color: Colors.black,
-      ),
-      onPressed: _showAdminPanel,
-    ),
+                  // 🏢 Empresario → crear eventos
+                  if (tipoPersona == "Empresario") ...[
+                    IconButton(
+                      icon: const Icon(
+                        Icons.event_busy,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed:
+                          () => _showMyEventsDialog(), // 🔹 Llama al diálogo
+                    ),
 
-  // 🚪 Logout (para todos)
-  IconButton(
-    icon: const Icon(
-      Icons.logout,
-      size: 28,
-      color: Colors.black,
-    ),
-    onPressed: _confirmLogout,
-  ),
-],
+                    IconButton(
+                      icon: const Icon(
+                        Icons.add_box_rounded,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: () => _showAddEventDialog(),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.people_alt_rounded,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        // 👥 Ir a la pantalla de asistentes
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MisEventosEmpresarioScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
 
+                  // 🛠️ Administrador → panel admin
+                  if (tipoPersona == "Administrador")
+                    IconButton(
+                      icon: const Icon(
+                        Icons.admin_panel_settings,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                      onPressed: _showAdminPanel,
+                    ),
+
+                  // 🚪 Logout (para todos)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.logout,
+                      size: 28,
+                      color: Colors.black,
+                    ),
+                    onPressed: _confirmLogout,
+                  ),
+                ],
               ),
             ],
         body: Column(
