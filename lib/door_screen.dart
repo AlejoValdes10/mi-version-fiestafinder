@@ -92,7 +92,7 @@ class _DoorScreenState extends State<DoorScreen> {
         "📍 Dirección: $address\n"
         "🔄 Tipo de viaje: $tripType\n";
 
-    final phone = "573215007548";
+    final phone = "573227131453";
     final url = Uri.parse(
       "https://wa.me/$phone?text=${Uri.encodeComponent(message)}",
     );
@@ -221,7 +221,12 @@ class _DoorScreenState extends State<DoorScreen> {
                                   // 🔹 Tipo de viaje
                                   DropdownButtonFormField<String>(
                                     value: selectedTripType,
-                                    dropdownColor: const Color.fromARGB(255, 160, 160, 167),
+                                    dropdownColor: const Color.fromARGB(
+                                      255,
+                                      160,
+                                      160,
+                                      167,
+                                    ),
                                     items: const [
                                       DropdownMenuItem(
                                         value: "ida",
