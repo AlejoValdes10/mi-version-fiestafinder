@@ -101,7 +101,7 @@ Future<void> handlePayment(
   try {
     final userDoc =
         await FirebaseFirestore.instance
-            .collection('users')
+            .collection('usuarios')
             .doc(user.uid)
             .get();
     if (userDoc.exists && userDoc.data()!.containsKey('nombre')) {

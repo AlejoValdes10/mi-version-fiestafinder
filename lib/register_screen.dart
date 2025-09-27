@@ -47,6 +47,7 @@ class RegisterScreenState extends State<RegisterScreen> {
       ).showSnackBar(const SnackBar(content: Text('Correo inválido')));
       return;
     }
+
     if (!_isPasswordValid(passwordController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -57,6 +58,7 @@ class RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+
     if (!_isNumeric(documentNumberController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -65,20 +67,10 @@ class RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+
     if (personType == 'Empresario' && !_isNumeric(nitController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('El NIT debe contener solo números.')),
-      );
-      return;
-    }
-    if (personType == 'Administrador' &&
-        !emailController.text.endsWith('@admin.com')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Los administradores deben registrarse con un correo @admin.com',
-          ),
-        ),
       );
       return;
     }
@@ -96,9 +88,9 @@ class RegisterScreenState extends State<RegisterScreen> {
           'correo': emailController.text.trim(),
           'tipoDocumento': documentType,
           'numeroDocumento': documentNumberController.text.trim(),
-          'tipoPersona': personType,
+          'tipoPersona': personType, // Usuario o Empresario
           if (personType == 'Empresario') 'NIT': nitController.text.trim(),
-          'isAdmin': personType == 'Administrador', // Agregar este campo
+          'createdAt': FieldValue.serverTimestamp(),
         },
       );
 
@@ -318,91 +310,89 @@ class RegisterScreenState extends State<RegisterScreen> {
   }
 
   // **Campo de contraseña con el ojito**
-Widget _buildPasswordField(TextEditingController controller) {
-  return TextFormField(
-    controller: controller,
-    obscureText: _obscurePassword,
-    keyboardType: TextInputType.visiblePassword,
-    style: const TextStyle(color: Colors.black87, fontSize: 14),
-    decoration: InputDecoration(
-      labelText: 'Contraseña',
-      labelStyle: TextStyle(color: Colors.grey[600]),
-      prefixIcon: const Icon(
-        Icons.lock,
-        color: Color.fromARGB(255, 39, 48, 176), // Morado igual a los otros
-      ),
-      suffixIcon: IconButton(
-        icon: Icon(
-          _obscurePassword ? Icons.visibility_off : Icons.visibility,
-          color: Colors.grey,
+  Widget _buildPasswordField(TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
+      obscureText: _obscurePassword,
+      keyboardType: TextInputType.visiblePassword,
+      style: const TextStyle(color: Colors.black87, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: 'Contraseña',
+        labelStyle: TextStyle(color: Colors.grey[600]),
+        prefixIcon: const Icon(
+          Icons.lock,
+          color: Color.fromARGB(255, 39, 48, 176), // Morado igual a los otros
         ),
-        onPressed: () {
-          setState(() {
-            _obscurePassword = !_obscurePassword;
-          });
-        },
-      ),
-      filled: true,
-      fillColor: Colors.white, // Fondo blanco
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-      border: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
-        borderRadius: BorderRadius.circular(16.0),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
-        borderRadius: BorderRadius.circular(16.0),
-      ),
-      focusedBorder: const OutlineInputBorder(
-        borderSide: BorderSide(
-          color: Color.fromARGB(255, 39, 48, 176), // Morado al enfocar
-          width: 2.0,
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            color: Colors.grey,
+          ),
+          onPressed: () {
+            setState(() {
+              _obscurePassword = !_obscurePassword;
+            });
+          },
         ),
-        borderRadius: BorderRadius.all(Radius.circular(16.0)),
+        filled: true,
+        fillColor: Colors.white, // Fondo blanco
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 16,
+          horizontal: 20,
+        ),
+        border: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(
+            color: Color.fromARGB(255, 39, 48, 176), // Morado al enfocar
+            width: 2.0,
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(16.0)),
+        ),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        floatingLabelStyle: const TextStyle(
+          color: Color.fromARGB(255, 39, 48, 176),
+        ),
       ),
-      floatingLabelBehavior: FloatingLabelBehavior.auto,
-      floatingLabelStyle: const TextStyle(
-        color: Color.fromARGB(255, 39, 48, 176),
-      ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildGoogleButton() {
-  return GestureDetector(
-    onTap: _registerWithGoogle,
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 5,
-            offset: Offset(0, 2),
-            color: Colors.black.withOpacity(0.1),
-          ),
-        ],
+  Widget _buildGoogleButton() {
+    return GestureDetector(
+      onTap: _registerWithGoogle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 5,
+              offset: Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/google.png', width: 28, height: 28),
+            const SizedBox(width: 12),
+            Text(
+              'Continuar con Google',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            'assets/google.png',
-            width: 28,
-            height: 28,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Continuar con Google',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildLoginText() {
     return Row(
@@ -412,10 +402,9 @@ Widget _buildGoogleButton() {
         GestureDetector(
           onTap: () {
             Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(builder: (context) => LoginScreen()),
-);
-
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
           },
           child: const Text(
             'Inicia sesión',

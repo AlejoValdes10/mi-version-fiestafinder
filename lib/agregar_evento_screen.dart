@@ -682,36 +682,41 @@ class _AgregarEventoScreenState extends State<AgregarEventoScreen> {
         if (_ubicacionEvento != null) ...[
           SizedBox(height: 16),
           Container(
-            height: 200,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: FlutterMap(
-                options: MapOptions(center: _ubicacionEvento, zoom: 15.0),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    subdomains: ['a', 'b', 'c'],
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _ubicacionEvento!,
-                        builder: (ctx) => Icon(
-                          Icons.location_pin,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+  height: 200,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(color: Colors.grey[300]!),
+  ),
+  child: ClipRRect(
+    borderRadius: BorderRadius.circular(10),
+    child: FlutterMap(
+      options: MapOptions(
+        initialCenter: _ubicacionEvento!,
+        initialZoom: 15.0,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: ['a', 'b', 'c'],
+        ),
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: _ubicacionEvento!,
+              width: 40,
+              height: 40,
+              child: const Icon(
+                Icons.location_pin,
+                color: Colors.red,
+                size: 40,
               ),
             ),
-          ),
+          ],
+        ),
+      ],
+    ),
+  ),
+),
         ],
         SizedBox(height: 16),
         Container(
