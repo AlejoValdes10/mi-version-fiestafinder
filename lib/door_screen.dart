@@ -72,39 +72,44 @@ class _DoorScreenState extends State<DoorScreen> {
     }
   }
 
-  Future<void> _sendToWhatsApp() async {
-    if (selectedEvent == null || addressController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Completa todos los campos")),
-      );
-      return;
-    }
-
-    final eventName = selectedEvent!["nombre"];
-    final eventDate = selectedEvent!["fecha"];
-    final address = addressController.text;
-    final tripType = selectedTripType;
-
-    final message =
-        "🚖 *Reserva Puerta a Puerta*\n\n"
-        "🎉 Evento: $eventName\n"
-        "📅 Fecha: $eventDate\n"
-        "📍 Dirección: $address\n"
-        "🔄 Tipo de viaje: $tripType\n";
-
-    final phone = "573227131453";
-    final url = Uri.parse(
-      "https://wa.me/$phone?text=${Uri.encodeComponent(message)}",
+ Future<void> _sendToWhatsApp() async {
+  if (selectedEvent == null || addressController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Completa todos los campos")),
     );
+    return;
+  }
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
+  final eventName = selectedEvent!["nombre"];
+  final eventDate = selectedEvent!["fecha"];
+  final address = addressController.text;
+  final tripType = selectedTripType;
+  final phone = "573227131453";
+
+  final message = "🚖 Reserva Puerta a Puerta\n\n"
+      "🎉 Evento: $eventName\n"
+      "📅 Fecha: $eventDate\n"
+      "📍 Dirección: $address\n"
+      "🔄 Tipo de viaje: $tripType";
+
+  final whatsappAppUri = Uri.parse("whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}");
+  final whatsappWebUri = Uri.parse("https://api.whatsapp.com/send?phone=$phone&text=${Uri.encodeComponent(message)}");
+
+  try {
+    // Intentamos abrir la app directamente sin canLaunchUrl
+    await launchUrl(whatsappAppUri, mode: LaunchMode.externalApplication);
+  } catch (e) {
+    // Si falla, abrimos WhatsApp Web
+    try {
+      await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No se pudo abrir WhatsApp")),
       );
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
